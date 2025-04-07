@@ -22,6 +22,7 @@ export async function uploadAnswerScript(
       });
     
     if (error) {
+      console.error('Storage upload error:', error);
       throw error;
     }
     

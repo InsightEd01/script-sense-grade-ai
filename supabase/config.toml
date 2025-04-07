@@ -1,8 +1,12 @@
 
 project_id = "pppteoxncuuraqjlrhir"
 
+[storage]
+[storage.answer_scripts]
+public = true
+
 [functions.process-ocr]
-verify_jwt = true
+verify_jwt = false
 
 [functions.grade-answers]
-verify_jwt = true
+verify_jwt = false
