@@ -1,6 +1,10 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { Student, Subject, Examination, Question, AnswerScript, Answer } from '@/types/supabase';
+import { Database } from '@/types/database';
+
+// Type the supabase client
+type Tables = Database['public']['Tables'];
 
 // Student methods
 export async function getStudents(): Promise<Student[]> {
@@ -13,13 +17,13 @@ export async function getStudents(): Promise<Student[]> {
     throw error;
   }
   
-  return data;
+  return data || [];
 }
 
 export async function createStudent(student: Omit<Student, 'id'>): Promise<Student> {
   const { data, error } = await supabase
     .from('students')
-    .insert(student)
+    .insert(student as Tables['students']['Insert'])
     .select()
     .single();
   
@@ -33,7 +37,7 @@ export async function createStudent(student: Omit<Student, 'id'>): Promise<Stude
 export async function updateStudent(id: string, updates: Partial<Student>): Promise<Student> {
   const { data, error } = await supabase
     .from('students')
-    .update(updates)
+    .update(updates as Tables['students']['Update'])
     .eq('id', id)
     .select()
     .single();
@@ -67,13 +71,13 @@ export async function getSubjects(): Promise<Subject[]> {
     throw error;
   }
   
-  return data;
+  return data || [];
 }
 
 export async function createSubject(subject: Omit<Subject, 'id'>): Promise<Subject> {
   const { data, error } = await supabase
     .from('subjects')
-    .insert(subject)
+    .insert(subject as Tables['subjects']['Insert'])
     .select()
     .single();
   
@@ -87,7 +91,7 @@ export async function createSubject(subject: Omit<Subject, 'id'>): Promise<Subje
 export async function updateSubject(id: string, updates: Partial<Subject>): Promise<Subject> {
   const { data, error } = await supabase
     .from('subjects')
-    .update(updates)
+    .update(updates as Tables['subjects']['Update'])
     .eq('id', id)
     .select()
     .single();
@@ -122,13 +126,13 @@ export async function getExaminationsBySubject(subjectId: string): Promise<Exami
     throw error;
   }
   
-  return data;
+  return data || [];
 }
 
 export async function createExamination(examination: Omit<Examination, 'id'>): Promise<Examination> {
   const { data, error } = await supabase
     .from('examinations')
-    .insert(examination)
+    .insert(examination as Tables['examinations']['Insert'])
     .select()
     .single();
   
@@ -142,7 +146,7 @@ export async function createExamination(examination: Omit<Examination, 'id'>): P
 export async function updateExamination(id: string, updates: Partial<Examination>): Promise<Examination> {
   const { data, error } = await supabase
     .from('examinations')
-    .update(updates)
+    .update(updates as Tables['examinations']['Update'])
     .eq('id', id)
     .select()
     .single();
@@ -177,13 +181,13 @@ export async function getQuestionsByExamination(examinationId: string): Promise<
     throw error;
   }
   
-  return data;
+  return data || [];
 }
 
 export async function createQuestion(question: Omit<Question, 'id'>): Promise<Question> {
   const { data, error } = await supabase
     .from('questions')
-    .insert(question)
+    .insert(question as Tables['questions']['Insert'])
     .select()
     .single();
   
@@ -197,7 +201,7 @@ export async function createQuestion(question: Omit<Question, 'id'>): Promise<Qu
 export async function updateQuestion(id: string, updates: Partial<Question>): Promise<Question> {
   const { data, error } = await supabase
     .from('questions')
-    .update(updates)
+    .update(updates as Tables['questions']['Update'])
     .eq('id', id)
     .select()
     .single();
@@ -232,13 +236,13 @@ export async function getAnswerScriptsByExamination(examinationId: string): Prom
     throw error;
   }
   
-  return data;
+  return data || [];
 }
 
 export async function createAnswerScript(answerScript: Omit<AnswerScript, 'id'>): Promise<AnswerScript> {
   const { data, error } = await supabase
     .from('answer_scripts')
-    .insert(answerScript)
+    .insert(answerScript as Tables['answer_scripts']['Insert'])
     .select()
     .single();
   
@@ -255,7 +259,7 @@ export async function updateAnswerScriptStatus(
 ): Promise<AnswerScript> {
   const { data, error } = await supabase
     .from('answer_scripts')
-    .update({ processing_status: status })
+    .update({ processing_status: status } as Tables['answer_scripts']['Update'])
     .eq('id', id)
     .select()
     .single();
@@ -289,13 +293,13 @@ export async function getAnswersByAnswerScript(answerScriptId: string): Promise<
     throw error;
   }
   
-  return data;
+  return data || [];
 }
 
 export async function createAnswer(answer: Omit<Answer, 'id'>): Promise<Answer> {
   const { data, error } = await supabase
     .from('answers')
-    .insert(answer)
+    .insert(answer as Tables['answers']['Insert'])
     .select()
     .single();
   
@@ -309,7 +313,7 @@ export async function createAnswer(answer: Omit<Answer, 'id'>): Promise<Answer> 
 export async function updateAnswer(id: string, updates: Partial<Answer>): Promise<Answer> {
   const { data, error } = await supabase
     .from('answers')
-    .update(updates)
+    .update(updates as Tables['answers']['Update'])
     .eq('id', id)
     .select()
     .single();
@@ -332,7 +336,7 @@ export async function overrideGrade(
       is_overridden: true,
       manual_grade: manualGrade,
       override_justification: justification
-    })
+    } as Tables['answers']['Update'])
     .eq('id', id)
     .select()
     .single();
@@ -354,7 +358,7 @@ export async function getTeachers() {
     throw error;
   }
   
-  return data;
+  return data || [];
 }
 
 export async function deleteTeacher(id: string): Promise<void> {

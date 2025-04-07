@@ -5,6 +5,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { User } from '@/types/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Session } from '@supabase/supabase-js';
+import { Database } from '@/types/database';
 
 interface AuthContextType {
   user: User | null;
@@ -47,11 +48,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               throw error;
             }
 
-            setUser({
-              id: currentSession.user.id,
-              email: currentSession.user.email || '',
-              role: userData.role
-            });
+            if (userData) {
+              setUser({
+                id: currentSession.user.id,
+                email: currentSession.user.email || '',
+                role: userData.role
+              });
+            } else {
+              setUser(null);
+            }
           } catch (error) {
             setUser(null);
             if (error instanceof Error) {
@@ -84,11 +89,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               throw error;
             }
 
-            setUser({
-              id: currentSession.user.id,
-              email: currentSession.user.email || '',
-              role: userData.role
-            });
+            if (userData) {
+              setUser({
+                id: currentSession.user.id,
+                email: currentSession.user.email || '',
+                role: userData.role
+              });
+            } else {
+              setUser(null);
+            }
           } catch (error) {
             setUser(null);
             if (error instanceof Error) {
