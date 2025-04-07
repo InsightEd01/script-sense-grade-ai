@@ -52,7 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setUser({
                 id: currentSession.user.id,
                 email: currentSession.user.email || '',
-                role: userData.role
+                role: userData.role as 'admin' | 'teacher'
               });
             } else {
               setUser(null);
@@ -93,7 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setUser({
                 id: currentSession.user.id,
                 email: currentSession.user.email || '',
-                role: userData.role
+                role: userData.role as 'admin' | 'teacher'
               });
             } else {
               setUser(null);

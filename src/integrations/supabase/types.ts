@@ -9,7 +9,274 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      answer_scripts: {
+        Row: {
+          examination_id: string
+          id: string
+          processing_status: string
+          script_image_url: string
+          student_id: string
+          upload_timestamp: string
+        }
+        Insert: {
+          examination_id: string
+          id?: string
+          processing_status: string
+          script_image_url: string
+          student_id: string
+          upload_timestamp?: string
+        }
+        Update: {
+          examination_id?: string
+          id?: string
+          processing_status?: string
+          script_image_url?: string
+          student_id?: string
+          upload_timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "answer_scripts_examination_id_fkey"
+            columns: ["examination_id"]
+            isOneToOne: false
+            referencedRelation: "examinations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "answer_scripts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      answers: {
+        Row: {
+          answer_script_id: string
+          assigned_grade: number | null
+          extracted_text: string | null
+          id: string
+          is_overridden: boolean
+          llm_explanation: string | null
+          manual_grade: number | null
+          override_justification: string | null
+          question_id: string
+        }
+        Insert: {
+          answer_script_id: string
+          assigned_grade?: number | null
+          extracted_text?: string | null
+          id?: string
+          is_overridden?: boolean
+          llm_explanation?: string | null
+          manual_grade?: number | null
+          override_justification?: string | null
+          question_id: string
+        }
+        Update: {
+          answer_script_id?: string
+          assigned_grade?: number | null
+          extracted_text?: string | null
+          id?: string
+          is_overridden?: boolean
+          llm_explanation?: string | null
+          manual_grade?: number | null
+          override_justification?: string | null
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "answers_answer_script_id_fkey"
+            columns: ["answer_script_id"]
+            isOneToOne: false
+            referencedRelation: "answer_scripts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      examinations: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          subject_id: string
+          total_marks: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          subject_id: string
+          total_marks: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          subject_id?: string
+          total_marks?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "examinations_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      questions: {
+        Row: {
+          created_at: string
+          examination_id: string
+          id: string
+          marks: number
+          model_answer: string
+          model_answer_source: string
+          question_text: string
+          tolerance: number
+        }
+        Insert: {
+          created_at?: string
+          examination_id: string
+          id?: string
+          marks: number
+          model_answer: string
+          model_answer_source: string
+          question_text: string
+          tolerance: number
+        }
+        Update: {
+          created_at?: string
+          examination_id?: string
+          id?: string
+          marks?: number
+          model_answer?: string
+          model_answer_source?: string
+          question_text?: string
+          tolerance?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questions_examination_id_fkey"
+            columns: ["examination_id"]
+            isOneToOne: false
+            referencedRelation: "examinations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      students: {
+        Row: {
+          id: string
+          name: string
+          teacher_id: string
+          unique_student_id: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          teacher_id: string
+          unique_student_id: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          teacher_id?: string
+          unique_student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "students_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subjects: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          teacher_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          teacher_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subjects_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teachers: {
+        Row: {
+          id: string
+          name: string
+        }
+        Insert: {
+          id: string
+          name: string
+        }
+        Update: {
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teachers_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          email: string
+          id: string
+          role: string
+        }
+        Insert: {
+          email: string
+          id: string
+          role: string
+        }
+        Update: {
+          email?: string
+          id?: string
+          role?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
