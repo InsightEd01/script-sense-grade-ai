@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,18 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// ScriptSense specific colors
+				scriptsense: {
+					primary: '#1E3A8A', // deep blue
+					secondary: '#4F46E5', // indigo
+					accent: '#3B82F6', // blue
+					success: '#10B981', // green
+					warning: '#F59E0B', // yellow
+					error: '#EF4444', // red
+					background: '#F9FAFB', // light gray
+					card: '#FFFFFF', // white
+					text: '#1F2937', // dark gray
 				}
 			},
 			borderRadius: {
@@ -84,11 +97,21 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				fadeIn: {
+					'0%': { opacity: '0' },
+					'100%': { opacity: '1' }
+				},
+				slideIn: {
+					'0%': { transform: 'translateY(20px)', opacity: '0' },
+					'100%': { transform: 'translateY(0)', opacity: '1' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'fade-in': 'fadeIn 0.3s ease-in',
+				'slide-in': 'slideIn 0.5s ease-out'
 			}
 		}
 	},
