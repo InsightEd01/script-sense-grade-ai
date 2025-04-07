@@ -1,7 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { Student, Subject, Examination, Question, AnswerScript, Answer } from '@/types/supabase';
-import { Database } from '@/types/database';
+import { Database } from '@/integrations/supabase/types';
 
 // Student methods
 export async function getStudents(): Promise<Student[]> {

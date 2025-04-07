@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,10 +13,9 @@ import { PlusCircle, Search, Trash2, UserPlus } from 'lucide-react';
 import { getTeachers, deleteTeacher } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loading } from '@/components/ui/loading';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 
+// Define the interface for the teacher data structure
 interface TeacherWithUser {
   id: string;
   name: string;
@@ -151,7 +150,7 @@ const TeachersPage = () => {
   };
 
   // Filter teachers based on search term
-  const filteredTeachers = teachers?.filter(teacher => 
+  const filteredTeachers = teachers?.filter((teacher: TeacherWithUser) => 
     teacher.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (teacher.users?.email && teacher.users.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
@@ -282,7 +281,7 @@ const TeachersPage = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTeachers.map((teacher) => (
+                  {filteredTeachers.map((teacher: TeacherWithUser) => (
                     <TableRow key={teacher.id}>
                       <TableCell className="font-medium">{teacher.name}</TableCell>
                       <TableCell>{teacher.users?.email}</TableCell>
