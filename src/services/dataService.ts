@@ -178,7 +178,11 @@ export async function getQuestionsByExamination(examinationId: string): Promise<
     throw error;
   }
   
-  return data || [];
+  // Type casting to ensure model_answer_source is the correct type
+  return (data || []).map(question => ({
+    ...question,
+    model_answer_source: question.model_answer_source as 'uploaded' | 'ai_generated'
+  }));
 }
 
 export async function createQuestion(question: Omit<Question, 'id'>): Promise<Question> {
@@ -192,7 +196,11 @@ export async function createQuestion(question: Omit<Question, 'id'>): Promise<Qu
     throw error;
   }
   
-  return data;
+  // Type casting to ensure model_answer_source is the correct type
+  return {
+    ...data,
+    model_answer_source: data.model_answer_source as 'uploaded' | 'ai_generated'
+  };
 }
 
 export async function updateQuestion(id: string, updates: Partial<Question>): Promise<Question> {
@@ -207,7 +215,11 @@ export async function updateQuestion(id: string, updates: Partial<Question>): Pr
     throw error;
   }
   
-  return data;
+  // Type casting to ensure model_answer_source is the correct type
+  return {
+    ...data,
+    model_answer_source: data.model_answer_source as 'uploaded' | 'ai_generated'
+  };
 }
 
 export async function deleteQuestion(id: string): Promise<void> {
@@ -233,7 +245,12 @@ export async function getAnswerScriptsByExamination(examinationId: string): Prom
     throw error;
   }
   
-  return data || [];
+  // Type casting to ensure processing_status is the correct type
+  return (data || []).map(script => ({
+    ...script,
+    processing_status: script.processing_status as 'uploaded' | 'ocr_pending' | 'ocr_complete' | 'grading_pending' | 'grading_complete' | 'error',
+    student: script.students
+  }));
 }
 
 export async function createAnswerScript(answerScript: Omit<AnswerScript, 'id'>): Promise<AnswerScript> {
@@ -247,7 +264,11 @@ export async function createAnswerScript(answerScript: Omit<AnswerScript, 'id'>)
     throw error;
   }
   
-  return data;
+  // Type casting to ensure processing_status is the correct type
+  return {
+    ...data,
+    processing_status: data.processing_status as 'uploaded' | 'ocr_pending' | 'ocr_complete' | 'grading_pending' | 'grading_complete' | 'error'
+  };
 }
 
 export async function updateAnswerScriptStatus(
@@ -265,7 +286,11 @@ export async function updateAnswerScriptStatus(
     throw error;
   }
   
-  return data;
+  // Type casting to ensure processing_status is the correct type
+  return {
+    ...data,
+    processing_status: data.processing_status as 'uploaded' | 'ocr_pending' | 'ocr_complete' | 'grading_pending' | 'grading_complete' | 'error'
+  };
 }
 
 export async function deleteAnswerScript(id: string): Promise<void> {

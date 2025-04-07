@@ -8,6 +8,7 @@ export interface User {
 export interface Teacher {
   id: string;
   name: string;
+  users?: User;
 }
 
 export interface Student {
@@ -22,6 +23,7 @@ export interface Subject {
   teacher_id: string;
   name: string;
   description?: string;
+  created_at?: string;
 }
 
 export interface Examination {
@@ -29,6 +31,7 @@ export interface Examination {
   subject_id: string;
   name: string;
   total_marks: number;
+  created_at?: string;
 }
 
 export interface Question {
@@ -39,6 +42,7 @@ export interface Question {
   model_answer_source: 'uploaded' | 'ai_generated';
   marks: number;
   tolerance: number;
+  created_at?: string;
 }
 
 export interface AnswerScript {
@@ -48,18 +52,21 @@ export interface AnswerScript {
   script_image_url: string;
   upload_timestamp: string;
   processing_status: 'uploaded' | 'ocr_pending' | 'ocr_complete' | 'grading_pending' | 'grading_complete' | 'error';
+  student?: Student;
+  students?: Student;
 }
 
 export interface Answer {
   id: string;
   answer_script_id: string;
   question_id: string;
-  extracted_text: string;
-  assigned_grade: number;
-  llm_explanation: string;
+  extracted_text?: string;
+  assigned_grade?: number;
+  llm_explanation?: string;
   is_overridden: boolean;
   manual_grade?: number;
   override_justification?: string;
+  question?: Question;
 }
 
 export interface GradingResult {
