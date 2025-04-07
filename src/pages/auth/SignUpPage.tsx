@@ -5,9 +5,8 @@ import { FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -56,8 +55,13 @@ const SignUpPage = () => {
       });
       navigate('/dashboard', { replace: true });
     } catch (error) {
-      console.error("Sign up error:", error);
-    } finally {
+      if (error instanceof Error) {
+        toast({
+          title: "Sign up error",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
       setIsLoading(false);
     }
   };

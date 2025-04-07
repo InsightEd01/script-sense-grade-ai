@@ -1,1 +1,8 @@
+
 project_id = "pppteoxncuuraqjlrhir"
+
+[functions.process-ocr]
+verify_jwt = true
+
+[functions.grade-answers]
+verify_jwt = true
