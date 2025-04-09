@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { User } from '@/types/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Session } from '@supabase/supabase-js';
@@ -44,7 +44,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               .single();
 
             if (error) {
-              throw error;
+              console.error('Error fetching user data:', error.message);
+              return;
             }
 
             if (userData) {
@@ -53,20 +54,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 email: currentSession.user.email || '',
                 role: userData.role as 'admin' | 'teacher'
               });
-            } else {
-              setUser(null);
             }
           } catch (error) {
-            setUser(null);
-            if (error instanceof Error) {
-              console.error('Error fetching user data:', error.message);
-            }
+            console.error('Error in auth state change handler:', error);
+          } finally {
+            setIsLoading(false);
           }
         } else {
           setUser(null);
+          setIsLoading(false);
         }
-        
-        setIsLoading(false);
       }
     );
 
@@ -76,16 +73,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (currentSession?.user) {
         // Fetch user data from database
-        setTimeout(async () => {
-          try {
-            const { data: userData, error } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', currentSession.user.id)
-              .single();
-
+        supabase
+          .from('users')
+          .select('*')
+          .eq('id', currentSession.user.id)
+          .single()
+          .then(({ data: userData, error }) => {
             if (error) {
-              throw error;
+              console.error('Error fetching user data:', error.message);
+              setIsLoading(false);
+              return;
             }
 
             if (userData) {
@@ -94,18 +91,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 email: currentSession.user.email || '',
                 role: userData.role as 'admin' | 'teacher'
               });
-            } else {
-              setUser(null);
             }
-          } catch (error) {
-            setUser(null);
-            if (error instanceof Error) {
-              console.error('Error fetching user data:', error.message);
-            }
-          } finally {
             setIsLoading(false);
-          }
-        }, 0);
+          });
       } else {
         setIsLoading(false);
       }
@@ -114,12 +102,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       subscription.unsubscribe();
     };
-  }, [toast]);
+  }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      const { error } = await supabase.auth.signInWithPassword({ 
+      const { error, data } = await supabase.auth.signInWithPassword({ 
         email, 
         password 
       });
@@ -132,6 +120,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         title: "Welcome back!",
         description: "You've successfully signed in."
       });
+      
+      // Navigate to dashboard immediately after successful sign-in
+      navigate('/dashboard');
     } catch (error) {
       if (error instanceof Error) {
         toast({
@@ -156,7 +147,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           data: {
             role,
             name
-          }
+          },
+          // Disable email verification
+          emailRedirectTo: window.location.origin
         }
       });
       
@@ -164,12 +157,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw error;
       }
       
+      // Create user record manually to ensure it's available immediately
+      if (data.user) {
+        const { error: insertError } = await supabase
+          .from('users')
+          .insert({
+            id: data.user.id,
+            email: email,
+            role: role
+          });
+          
+        if (role === 'teacher') {
+          const { error: teacherError } = await supabase
+            .from('teachers')
+            .insert({
+              id: data.user.id,
+              name: name
+            });
+            
+          if (teacherError) {
+            console.error('Error creating teacher record:', teacherError);
+          }
+        }
+        
+        if (insertError) {
+          console.error('Error creating user record:', insertError);
+        }
+      }
+      
       toast({
         title: "Account created",
-        description: "Your account has been successfully created!"
+        description: "Your account has been successfully created! You can now sign in."
       });
       
-      navigate('/dashboard');
+      // Redirect to signin page after signup
+      navigate('/signin');
     } catch (error) {
       if (error instanceof Error) {
         toast({

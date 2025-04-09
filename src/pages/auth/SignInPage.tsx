@@ -5,7 +5,6 @@ import { FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -42,14 +41,9 @@ const SignInPage = () => {
     try {
       setIsLoading(true);
       await signIn(data.email, data.password);
-      toast({
-        title: "Welcome back!",
-        description: "You've successfully signed in."
-      });
-      navigate(from, { replace: true });
+      // Note: Navigation is now handled in the AuthContext signIn function
     } catch (error) {
       console.error("Sign in error:", error);
-    } finally {
       setIsLoading(false);
     }
   };

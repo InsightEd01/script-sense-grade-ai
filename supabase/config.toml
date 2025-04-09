@@ -1,12 +1,24 @@
 
-project_id = "pppteoxncuuraqjlrhir"
+# This is a placeholder file to demonstrate how Row Level Security (RLS) policies should be set up.
+# The actual policies should be created in the Supabase dashboard or via SQL migrations.
 
-[storage]
-[storage.answer_scripts]
-public = true
+# Example policy for students table
+# CREATE POLICY "Teachers can view their own students"
+# ON public.students
+# FOR SELECT
+# USING (teacher_id = auth.uid());
 
-[functions.process-ocr]
-verify_jwt = false
+# CREATE POLICY "Teachers can insert their own students"
+# ON public.students
+# FOR INSERT
+# WITH CHECK (teacher_id = auth.uid());
 
-[functions.grade-answers]
-verify_jwt = false
+# CREATE POLICY "Teachers can update their own students"
+# ON public.students
+# FOR UPDATE
+# USING (teacher_id = auth.uid());
+
+# CREATE POLICY "Teachers can delete their own students"
+# ON public.students
+# FOR DELETE
+# USING (teacher_id = auth.uid());

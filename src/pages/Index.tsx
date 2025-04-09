@@ -12,7 +12,7 @@ const Index = () => {
     // If user is already authenticated, redirect to dashboard
     if (user && !isLoading) {
       navigate('/dashboard');
-    } else if (!isLoading) {
+    } else if (!isLoading && !user) {
       // If user is not authenticated and not loading, redirect to welcome page
       navigate('/');
     }
