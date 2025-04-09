@@ -12,17 +12,7 @@ import { toast } from '@/components/ui/use-toast';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Examination name must be at least 2 characters' }).max(100),
-  total_marks: z.string().transform((val, ctx) => {
-    const parsed = parseInt(val, 10);
-    if (isNaN(parsed) || parsed <= 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Total marks must be a positive number',
-      });
-      return z.NEVER;
-    }
-    return parsed;
-  }),
+  total_marks: z.coerce.number().positive({ message: 'Total marks must be a positive number' }),
 });
 
 type ExaminationFormValues = z.infer<typeof formSchema>;
@@ -40,7 +30,7 @@ export function ExaminationForm({ subjectId, onSuccess }: ExaminationFormProps) 
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
-      total_marks: '100',
+      total_marks: 100,
     },
   });
   
@@ -109,7 +99,8 @@ export function ExaminationForm({ subjectId, onSuccess }: ExaminationFormProps) 
                   type="number" 
                   min="1"
                   placeholder="e.g., 100" 
-                  {...field} 
+                  {...field}
+                  onChange={e => field.onChange(parseInt(e.target.value) || 0)}
                 />
               </FormControl>
               <FormMessage />
