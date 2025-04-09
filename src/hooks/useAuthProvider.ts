@@ -19,34 +19,37 @@ export const useAuthProvider = () => {
   useEffect(() => {
     // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
+      (event, currentSession) => {
         setSession(currentSession);
         
         if (currentSession?.user) {
-          try {
-            const { data: userData, error } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', currentSession.user.id)
-              .single();
+          // Using setTimeout to avoid Supabase auth deadlocks
+          setTimeout(async () => {
+            try {
+              const { data: userData, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', currentSession.user.id)
+                .single();
 
-            if (error) {
-              console.error('Error fetching user data:', error.message);
-              return;
-            }
+              if (error) {
+                console.error('Error fetching user data:', error.message);
+                return;
+              }
 
-            if (userData) {
-              setUser({
-                id: currentSession.user.id,
-                email: currentSession.user.email || '',
-                role: userData.role as 'admin' | 'teacher'
-              });
+              if (userData) {
+                setUser({
+                  id: currentSession.user.id,
+                  email: currentSession.user.email || '',
+                  role: userData.role as 'admin' | 'teacher'
+                });
+              }
+            } catch (error) {
+              console.error('Error in auth state change handler:', error);
+            } finally {
+              setIsLoading(false);
             }
-          } catch (error) {
-            console.error('Error in auth state change handler:', error);
-          } finally {
-            setIsLoading(false);
-          }
+          }, 0);
         } else {
           setUser(null);
           setIsLoading(false);
@@ -108,8 +111,8 @@ export const useAuthProvider = () => {
         description: "You've successfully signed in."
       });
       
-      // Navigate to dashboard immediately after successful sign-in
-      navigate('/dashboard');
+      // Don't navigate here, let the auth state change handler do it
+      return data;
     } catch (error) {
       if (error instanceof Error) {
         toast({
@@ -135,8 +138,8 @@ export const useAuthProvider = () => {
             role,
             name
           },
-          // Disable email verification
-          emailRedirectTo: window.location.origin
+          // No email verification
+          emailRedirectTo: null
         }
       });
       
@@ -177,8 +180,12 @@ export const useAuthProvider = () => {
         description: "Your account has been successfully created! You can now sign in."
       });
       
-      // Redirect to signin page after signup
-      navigate('/signin');
+      // Sign in automatically after successful sign up
+      if (data.user) {
+        await signIn(email, password);
+      } else {
+        navigate('/signin');
+      }
     } catch (error) {
       if (error instanceof Error) {
         toast({
@@ -207,7 +214,9 @@ export const useAuthProvider = () => {
         description: "You've been successfully signed out."
       });
       
-      navigate('/');
+      // Don't navigate here, let the auth state change handle it
+      setUser(null);
+      setSession(null);
     } catch (error) {
       if (error instanceof Error) {
         toast({

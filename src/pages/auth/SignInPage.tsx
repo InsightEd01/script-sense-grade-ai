@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ const signInSchema = z.object({
 type SignInFormValues = z.infer<typeof signInSchema>;
 
 const SignInPage = () => {
-  const { signIn } = useAuth();
+  const { signIn, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -28,6 +28,13 @@ const SignInPage = () => {
 
   // Get redirect path from location state or default to dashboard
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
+
+  // If user is already signed in, redirect to dashboard
+  useEffect(() => {
+    if (user) {
+      navigate(from, { replace: true });
+    }
+  }, [user, navigate, from]);
 
   const form = useForm<SignInFormValues>({
     resolver: zodResolver(signInSchema),
@@ -41,7 +48,7 @@ const SignInPage = () => {
     try {
       setIsLoading(true);
       await signIn(data.email, data.password);
-      // Note: Navigation is now handled in the AuthContext signIn function
+      // Navigation will happen automatically in the useEffect when user state changes
     } catch (error) {
       console.error("Sign in error:", error);
       setIsLoading(false);

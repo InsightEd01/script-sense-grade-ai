@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -29,10 +29,17 @@ const signUpSchema = z.object({
 type SignUpFormValues = z.infer<typeof signUpSchema>;
 
 const SignUpPage = () => {
-  const { signUp } = useAuth();
+  const { signUp, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+
+  // If user is already signed in, redirect to dashboard
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [user, navigate]);
 
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
@@ -49,11 +56,7 @@ const SignUpPage = () => {
     try {
       setIsLoading(true);
       await signUp(data.email, data.password, data.role, data.name);
-      toast({
-        title: "Account created successfully!",
-        description: "Welcome to scriptSense."
-      });
-      navigate('/dashboard', { replace: true });
+      // The signUp function now handles navigation after successful signup
     } catch (error) {
       if (error instanceof Error) {
         toast({
