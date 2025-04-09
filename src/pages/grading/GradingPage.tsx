@@ -123,9 +123,9 @@ const GradingPage = () => {
       case 'ocr_complete':
         return <Badge variant="secondary"><CheckCircle className="mr-1 h-3 w-3" /> OCR Complete</Badge>;
       case 'grading_pending':
-        return <Badge variant="warning"><Clock className="mr-1 h-3 w-3" /> Pending Grading</Badge>;
+        return <Badge variant="outline"><Clock className="mr-1 h-3 w-3 text-yellow-500" /> Pending Grading</Badge>;
       case 'grading_complete':
-        return <Badge variant="success"><CheckCircle className="mr-1 h-3 w-3 text-green-500" /> Graded</Badge>;
+        return <Badge variant="outline"><CheckCircle className="mr-1 h-3 w-3 text-green-500" /> Graded</Badge>;
       case 'error':
         return <Badge variant="destructive"><XCircle className="mr-1 h-3 w-3" /> Error</Badge>;
       default:

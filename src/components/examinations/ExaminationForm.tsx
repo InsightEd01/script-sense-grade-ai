@@ -61,7 +61,7 @@ export function ExaminationForm({ subjectId, onSuccess }: ExaminationFormProps) 
       await createExamination({
         subject_id: subjectId,
         name: data.name,
-        total_marks: data.total_marks,
+        total_marks: data.total_marks, // Now this is a number after the zod transform
       });
       
       form.reset();
