@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,8 +11,9 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export const ChatList = () => {
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
-  const { user } = useAuth();
+  const { user, isTeacher } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!user) return;
@@ -51,16 +52,26 @@ export const ChatList = () => {
     };
   }, [user]);
 
+  const handleNewChatClick = () => {
+    if (!isTeacher) {
+      toast({
+        title: "Permission Denied",
+        description: "Only teachers can create new chat rooms",
+        variant: "destructive"
+      });
+      return;
+    }
+    navigate('/chat/new');
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Chat Rooms</h2>
-        <Link to="/chat/new">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            New Chat Room
-          </Button>
-        </Link>
+        <Button onClick={handleNewChatClick}>
+          <Plus className="mr-2 h-4 w-4" />
+          New Chat Room
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

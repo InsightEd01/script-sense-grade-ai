@@ -1,395 +1,153 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { Student, Subject, Examination, Question, AnswerScript, Answer } from '@/types/supabase';
-import { Database } from '@/integrations/supabase/types';
+import { Subject, Examination } from '@/types/supabase';
 
-// Student methods
-export async function getStudents(): Promise<Student[]> {
-  const { data, error } = await supabase
-    .from('students')
-    .select('*')
-    .order('name');
-  
-  if (error) {
-    throw error;
-  }
-  
-  return data || [];
-}
-
-export async function createStudent(student: Omit<Student, 'id'>): Promise<Student> {
-  const { data, error } = await supabase
-    .from('students')
-    .insert(student)
-    .select()
-    .single();
-  
-  if (error) {
-    throw error;
-  }
-  
-  return data;
-}
-
-export async function updateStudent(id: string, updates: Partial<Student>): Promise<Student> {
-  const { data, error } = await supabase
-    .from('students')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-  
-  if (error) {
-    throw error;
-  }
-  
-  return data;
-}
-
-export async function deleteStudent(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('students')
-    .delete()
-    .eq('id', id);
-  
-  if (error) {
-    throw error;
-  }
-}
-
-// Subject methods
-export async function getSubjects(): Promise<Subject[]> {
+export const getSubjects = async (): Promise<Subject[]> => {
   const { data, error } = await supabase
     .from('subjects')
     .select('*')
-    .order('name');
-  
+    .order('created_at', { ascending: false });
+
   if (error) {
+    console.error('Error fetching subjects:', error);
     throw error;
   }
-  
-  return data || [];
-}
 
-export async function createSubject(subject: Omit<Subject, 'id'>): Promise<Subject> {
+  return data || [];
+};
+
+export const createSubject = async (subject: { teacher_id: string; name: string; description?: string }) => {
   const { data, error } = await supabase
     .from('subjects')
-    .insert(subject)
+    .insert([subject])
     .select()
     .single();
-  
+
   if (error) {
+    console.error('Error creating subject:', error);
     throw error;
   }
-  
-  return data;
-}
 
-export async function updateSubject(id: string, updates: Partial<Subject>): Promise<Subject> {
+  return data;
+};
+
+export const updateSubject = async (subjectId: string, updates: { name: string; description?: string }) => {
   const { data, error } = await supabase
     .from('subjects')
     .update(updates)
-    .eq('id', id)
+    .eq('id', subjectId)
     .select()
     .single();
-  
+
   if (error) {
+    console.error('Error updating subject:', error);
     throw error;
   }
-  
-  return data;
-}
 
-export async function deleteSubject(id: string): Promise<void> {
+  return data;
+};
+
+export const deleteSubject = async (subjectId: string) => {
   const { error } = await supabase
     .from('subjects')
     .delete()
-    .eq('id', id);
-  
+    .eq('id', subjectId);
+
   if (error) {
+    console.error('Error deleting subject:', error);
     throw error;
   }
-}
+};
 
-// Examination methods
-export async function getExaminationsBySubject(subjectId: string): Promise<Examination[]> {
+export const getExaminationsBySubject = async (subjectId: string): Promise<Examination[]> => {
   const { data, error } = await supabase
     .from('examinations')
     .select('*')
     .eq('subject_id', subjectId)
     .order('created_at', { ascending: false });
-  
+
   if (error) {
+    console.error('Error fetching examinations:', error);
     throw error;
   }
-  
+
   return data || [];
-}
+};
 
-export async function createExamination(examination: Omit<Examination, 'id'>): Promise<Examination> {
+export const createExamination = async (examination: { subject_id: string; name: string; total_marks: number }) => {
   const { data, error } = await supabase
     .from('examinations')
-    .insert(examination)
+    .insert([examination])
     .select()
     .single();
-  
+
   if (error) {
+    console.error('Error creating examination:', error);
     throw error;
   }
-  
-  return data;
-}
 
-export async function updateExamination(id: string, updates: Partial<Examination>): Promise<Examination> {
-  const { data, error } = await supabase
-    .from('examinations')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-  
-  if (error) {
-    throw error;
-  }
-  
   return data;
-}
+};
 
-export async function deleteExamination(id: string): Promise<void> {
+export const deleteExamination = async (examinationId: string) => {
   const { error } = await supabase
     .from('examinations')
     .delete()
-    .eq('id', id);
-  
+    .eq('id', examinationId);
+
   if (error) {
+    console.error('Error deleting examination:', error);
     throw error;
   }
-}
+};
 
-// Question methods
-export async function getQuestionsByExamination(examinationId: string): Promise<Question[]> {
+export const getExaminationById = async (examinationId: string) => {
+  const { data, error } = await supabase
+    .from('examinations')
+    .select('*')
+    .eq('id', examinationId)
+    .single();
+    
+  if (error) {
+    console.error('Error fetching examination:', error);
+    throw error;
+  }
+  
+  return data;
+};
+
+export const getQuestionsByExamination = async (examinationId: string) => {
   const { data, error } = await supabase
     .from('questions')
     .select('*')
     .eq('examination_id', examinationId)
-    .order('created_at');
-  
+    .order('created_at', { ascending: false });
+    
   if (error) {
-    throw error;
-  }
-  
-  // Type casting to ensure model_answer_source is the correct type
-  return (data || []).map(question => ({
-    ...question,
-    model_answer_source: question.model_answer_source as 'uploaded' | 'ai_generated'
-  }));
-}
-
-export async function createQuestion(question: Omit<Question, 'id'>): Promise<Question> {
-  const { data, error } = await supabase
-    .from('questions')
-    .insert(question)
-    .select()
-    .single();
-  
-  if (error) {
-    throw error;
-  }
-  
-  // Type casting to ensure model_answer_source is the correct type
-  return {
-    ...data,
-    model_answer_source: data.model_answer_source as 'uploaded' | 'ai_generated'
-  };
-}
-
-export async function updateQuestion(id: string, updates: Partial<Question>): Promise<Question> {
-  const { data, error } = await supabase
-    .from('questions')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-  
-  if (error) {
-    throw error;
-  }
-  
-  // Type casting to ensure model_answer_source is the correct type
-  return {
-    ...data,
-    model_answer_source: data.model_answer_source as 'uploaded' | 'ai_generated'
-  };
-}
-
-export async function deleteQuestion(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('questions')
-    .delete()
-    .eq('id', id);
-  
-  if (error) {
-    throw error;
-  }
-}
-
-// Answer Script methods
-export async function getAnswerScriptsByExamination(examinationId: string): Promise<AnswerScript[]> {
-  const { data, error } = await supabase
-    .from('answer_scripts')
-    .select('*, students(*)')
-    .eq('examination_id', examinationId)
-    .order('upload_timestamp', { ascending: false });
-  
-  if (error) {
-    throw error;
-  }
-  
-  // Type casting to ensure processing_status is the correct type
-  return (data || []).map(script => ({
-    ...script,
-    processing_status: script.processing_status as 'uploaded' | 'ocr_pending' | 'ocr_complete' | 'grading_pending' | 'grading_complete' | 'error',
-    student: script.students
-  }));
-}
-
-export async function createAnswerScript(answerScript: Omit<AnswerScript, 'id'>): Promise<AnswerScript> {
-  const { data, error } = await supabase
-    .from('answer_scripts')
-    .insert(answerScript)
-    .select()
-    .single();
-  
-  if (error) {
-    throw error;
-  }
-  
-  // Type casting to ensure processing_status is the correct type
-  return {
-    ...data,
-    processing_status: data.processing_status as 'uploaded' | 'ocr_pending' | 'ocr_complete' | 'grading_pending' | 'grading_complete' | 'error'
-  };
-}
-
-export async function updateAnswerScriptStatus(
-  id: string, 
-  status: 'uploaded' | 'ocr_pending' | 'ocr_complete' | 'grading_pending' | 'grading_complete' | 'error'
-): Promise<AnswerScript> {
-  const { data, error } = await supabase
-    .from('answer_scripts')
-    .update({ processing_status: status })
-    .eq('id', id)
-    .select()
-    .single();
-  
-  if (error) {
-    throw error;
-  }
-  
-  // Type casting to ensure processing_status is the correct type
-  return {
-    ...data,
-    processing_status: data.processing_status as 'uploaded' | 'ocr_pending' | 'ocr_complete' | 'grading_pending' | 'grading_complete' | 'error'
-  };
-}
-
-export async function deleteAnswerScript(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('answer_scripts')
-    .delete()
-    .eq('id', id);
-  
-  if (error) {
-    throw error;
-  }
-}
-
-// Answer methods
-export async function getAnswersByAnswerScript(answerScriptId: string): Promise<Answer[]> {
-  const { data, error } = await supabase
-    .from('answers')
-    .select('*, questions(*)')
-    .eq('answer_script_id', answerScriptId);
-  
-  if (error) {
-    throw error;
-  }
-  
-  return data || [];
-}
-
-export async function createAnswer(answer: Omit<Answer, 'id'>): Promise<Answer> {
-  const { data, error } = await supabase
-    .from('answers')
-    .insert(answer)
-    .select()
-    .single();
-  
-  if (error) {
+    console.error('Error fetching questions:', error);
     throw error;
   }
   
   return data;
-}
+};
 
-export async function updateAnswer(id: string, updates: Partial<Answer>): Promise<Answer> {
+export const createQuestion = async (question: {
+  examination_id: string;
+  question_text: string;
+  model_answer: string;
+  model_answer_source: 'uploaded' | 'ai_generated';
+  marks: number;
+  tolerance: number;
+}) => {
   const { data, error } = await supabase
-    .from('answers')
-    .update(updates)
-    .eq('id', id)
+    .from('questions')
+    .insert([question])
     .select()
     .single();
-  
+    
   if (error) {
+    console.error('Error creating question:', error);
     throw error;
   }
   
   return data;
-}
-
-export async function overrideGrade(
-  id: string, 
-  manualGrade: number, 
-  justification: string
-): Promise<Answer> {
-  const { data, error } = await supabase
-    .from('answers')
-    .update({
-      is_overridden: true,
-      manual_grade: manualGrade,
-      override_justification: justification
-    })
-    .eq('id', id)
-    .select()
-    .single();
-  
-  if (error) {
-    throw error;
-  }
-  
-  return data;
-}
-
-// Admin methods
-export async function getTeachers() {
-  const { data, error } = await supabase
-    .from('teachers')
-    .select('*, users(*)');
-  
-  if (error) {
-    throw error;
-  }
-  
-  return data || [];
-}
-
-export async function deleteTeacher(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('teachers')
-    .delete()
-    .eq('id', id);
-  
-  if (error) {
-    throw error;
-  }
-}
+};

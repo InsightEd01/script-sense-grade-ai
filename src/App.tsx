@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -21,6 +22,7 @@ import SubjectsPage from "./pages/subjects/SubjectsPage";
 import ExaminationsPage from "./pages/examinations/ExaminationsPage";
 import GradingPage from "./pages/grading/GradingPage";
 import AnalyticsPage from "./pages/analytics/AnalyticsPage";
+import QuestionsPage from "./pages/questions/QuestionsPage";
 
 // Admin pages
 import TeachersPage from "./pages/admin/TeachersPage";
@@ -68,6 +70,11 @@ const App = () => (
             <Route path="/examinations" element={
               <ProtectedRoute>
                 <ExaminationsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/questions" element={
+              <ProtectedRoute>
+                <QuestionsPage />
               </ProtectedRoute>
             } />
             <Route path="/grading" element={
