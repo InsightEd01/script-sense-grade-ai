@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -26,6 +25,7 @@ import AnalyticsPage from "./pages/analytics/AnalyticsPage";
 // Admin pages
 import TeachersPage from "./pages/admin/TeachersPage";
 import SettingsPage from "./pages/admin/SettingsPage";
+import ChatPage from "./pages/chat/ChatPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -78,6 +78,18 @@ const App = () => (
             <Route path="/analytics" element={
               <ProtectedRoute>
                 <AnalyticsPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Add new chat routes */}
+            <Route path="/chat" element={
+              <ProtectedRoute>
+                <ChatPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/chat/:roomId" element={
+              <ProtectedRoute>
+                <ChatPage />
               </ProtectedRoute>
             } />
             
