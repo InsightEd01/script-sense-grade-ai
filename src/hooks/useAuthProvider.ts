@@ -2,19 +2,20 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { User } from '@/types/supabase';
-import { Session } from '@supabase/supabase-js';
+import { User as CustomUser } from '@/types/supabase';
+import { User, Session } from '@supabase/supabase-js';
 import { useToast } from './use-toast';
 
 export const useAuthProvider = () => {
   const [user, setUser] = useState<User | null>(null);
+  const [customUser, setCustomUser] = useState<CustomUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const isAdmin = user?.role === 'admin';
-  const isTeacher = user?.role === 'teacher';
+  const isAdmin = customUser?.role === 'admin';
+  const isTeacher = customUser?.role === 'teacher';
 
   useEffect(() => {
     // Set up auth state listener first
@@ -38,7 +39,8 @@ export const useAuthProvider = () => {
               }
 
               if (userData) {
-                setUser({
+                setUser(currentSession.user);
+                setCustomUser({
                   id: currentSession.user.id,
                   email: currentSession.user.email || '',
                   role: userData.role as 'admin' | 'teacher'
@@ -52,6 +54,7 @@ export const useAuthProvider = () => {
           }, 0);
         } else {
           setUser(null);
+          setCustomUser(null);
           setIsLoading(false);
         }
       }
@@ -76,7 +79,8 @@ export const useAuthProvider = () => {
             }
 
             if (userData) {
-              setUser({
+              setUser(currentSession.user);
+              setCustomUser({
                 id: currentSession.user.id,
                 email: currentSession.user.email || '',
                 role: userData.role as 'admin' | 'teacher'
@@ -219,6 +223,7 @@ export const useAuthProvider = () => {
       });
       
       setUser(null);
+      setCustomUser(null);
       setSession(null);
       navigate('/signin');
     } catch (error) {
