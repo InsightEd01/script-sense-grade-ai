@@ -164,6 +164,12 @@ export const useAuthProvider = () => {
             role: role
           });
           
+        if (insertError) {
+          console.error('Error creating user record:', insertError);
+          throw insertError;
+        }
+        
+        // Create teacher record if role is teacher
         if (role === 'teacher') {
           const { error: teacherError } = await supabase
             .from('teachers')
@@ -174,11 +180,8 @@ export const useAuthProvider = () => {
             
           if (teacherError) {
             console.error('Error creating teacher record:', teacherError);
+            throw teacherError;
           }
-        }
-        
-        if (insertError) {
-          console.error('Error creating user record:', insertError);
         }
       }
       

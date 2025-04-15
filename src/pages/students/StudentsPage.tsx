@@ -31,6 +31,51 @@ const StudentsPage = () => {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [teacherId, setTeacherId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Check if the teacher record exists for the current user
+    const checkTeacherRecord = async () => {
+      if (user) {
+        const { data, error } = await supabase
+          .from('teachers')
+          .select('id')
+          .eq('id', user.id)
+          .single();
+        
+        if (error) {
+          console.error('Error checking teacher record:', error);
+          // If teacher record doesn't exist, create it
+          if (error.code === 'PGRST116') {
+            const { data: userData } = await supabase
+              .from('users')
+              .select('role, email')
+              .eq('id', user.id)
+              .single();
+            
+            if (userData && userData.role === 'teacher') {
+              const { error: insertError } = await supabase
+                .from('teachers')
+                .insert({
+                  id: user.id,
+                  name: userData.email.split('@')[0] // Use email prefix as name if not available
+                });
+              
+              if (!insertError) {
+                setTeacherId(user.id);
+              } else {
+                console.error('Failed to create teacher record:', insertError);
+              }
+            }
+          }
+        } else if (data) {
+          setTeacherId(data.id);
+        }
+      }
+    };
+    
+    checkTeacherRecord();
+  }, [user]);
 
   const { 
     data: students,
@@ -52,18 +97,18 @@ const StudentsPage = () => {
   });
 
   const onSubmit = async (data: StudentFormValues) => {
-    if (!user) {
+    if (!user || !teacherId) {
       toast({
         variant: "destructive",
         title: "Authentication Error",
-        description: "You must be logged in to create a student",
+        description: "You must be logged in as a teacher to create a student",
       });
       return;
     }
     
     try {
       await createStudent({
-        teacher_id: user.id,
+        teacher_id: teacherId,
         name: data.name,
         unique_student_id: data.unique_student_id,
       });
