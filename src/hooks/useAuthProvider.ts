@@ -111,8 +111,10 @@ export const useAuthProvider = () => {
         description: "You've successfully signed in."
       });
       
-      // Don't navigate here, let the auth state change handler do it
-      return data;
+      return {
+        user: data.user,
+        session: data.session
+      };
     } catch (error) {
       if (error instanceof Error) {
         toast({
@@ -121,7 +123,10 @@ export const useAuthProvider = () => {
           variant: "destructive"
         });
       }
-      throw error;
+      return {
+        user: null,
+        session: null
+      };
     } finally {
       setIsLoading(false);
     }
@@ -137,9 +142,7 @@ export const useAuthProvider = () => {
           data: {
             role,
             name
-          },
-          // No email verification
-          emailRedirectTo: null
+          }
         }
       });
       
@@ -177,15 +180,13 @@ export const useAuthProvider = () => {
       
       toast({
         title: "Account created",
-        description: "Your account has been successfully created! You can now sign in."
+        description: "Your account has been successfully created!"
       });
       
-      // Sign in automatically after successful sign up
-      if (data.user) {
-        await signIn(email, password);
-      } else {
-        navigate('/signin');
-      }
+      return {
+        user: data.user,
+        session: data.session
+      };
     } catch (error) {
       if (error instanceof Error) {
         toast({
@@ -194,7 +195,10 @@ export const useAuthProvider = () => {
           variant: "destructive"
         });
       }
-      throw error;
+      return {
+        user: null,
+        session: null
+      };
     } finally {
       setIsLoading(false);
     }
@@ -214,9 +218,9 @@ export const useAuthProvider = () => {
         description: "You've been successfully signed out."
       });
       
-      // Don't navigate here, let the auth state change handle it
       setUser(null);
       setSession(null);
+      navigate('/signin');
     } catch (error) {
       if (error instanceof Error) {
         toast({
