@@ -81,13 +81,6 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            {/* Add new questions route */}
-            <Route path="/questions/:examinationId" element={
-              <ProtectedRoute>
-                <QuestionsPage />
-              </ProtectedRoute>
-            } />
-            
             {/* Add new chat routes */}
             <Route path="/chat" element={
               <ProtectedRoute>
