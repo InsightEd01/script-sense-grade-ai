@@ -39,7 +39,8 @@ export const ChatRoom = () => {
         return;
       }
 
-      setMessages(data);
+      // Cast data to ChatMessage[] to ensure type compatibility
+      setMessages(data as ChatMessage[]);
       scrollToBottom();
     };
 
@@ -51,6 +52,7 @@ export const ChatRoom = () => {
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${roomId}` },
         (payload) => {
+          // Cast new message to ChatMessage to ensure type compatibility
           setMessages(prev => [...prev, payload.new as ChatMessage]);
           scrollToBottom();
         }
@@ -108,13 +110,19 @@ export const ChatRoom = () => {
         .from('chat_attachments')
         .getPublicUrl(filePath);
 
+      // Determine attachment type based on file.type
+      let attachmentType: string = 'file';
+      if (file.type.startsWith('image/')) {
+        attachmentType = 'image';
+      }
+
       await supabase
         .from('chat_messages')
         .insert({
           room_id: roomId,
           sender_id: user.id,
           attachment_url: data.publicUrl,
-          attachment_type: file.type.startsWith('image/') ? 'image' : 'file'
+          attachment_type: attachmentType
         });
 
     } catch (error) {

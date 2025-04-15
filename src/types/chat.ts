@@ -19,6 +19,6 @@ export interface ChatMessage {
   sender_id: string;
   message_text?: string;
   attachment_url?: string;
-  attachment_type?: 'image' | 'file' | 'voice';
+  attachment_type?: string; // Changed from '"image" | "file" | "voice"' to 'string'
   sent_at: string;
 }
