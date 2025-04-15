@@ -1,3 +1,4 @@
+
 import { useState, ReactNode } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
@@ -24,7 +25,7 @@ interface DashboardLayoutProps {
   children: ReactNode;
 }
 
-const DashboardLayout = ({ children }: DashboardLayoutProps) => {
+export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
@@ -185,4 +186,5 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   );
 };
 
+// Add a default export that references the named export
 export default DashboardLayout;
