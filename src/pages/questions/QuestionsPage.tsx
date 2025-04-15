@@ -1,6 +1,6 @@
 
 import { useParams } from "react-router-dom";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import DashboardLayout from "@/components/layout/DashboardLayout";
 import QuestionsList from "@/components/questions/QuestionsList";
 import QuestionForm from "@/components/questions/QuestionForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

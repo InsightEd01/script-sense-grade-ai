@@ -1,6 +1,6 @@
 
 import { Link } from "react-router-dom";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { 
   Table, TableBody, TableCell, TableHead, 
