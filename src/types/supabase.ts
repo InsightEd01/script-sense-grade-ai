@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   email: string;
@@ -8,14 +7,16 @@ export interface User {
 export interface Teacher {
   id: string;
   name: string;
-  users?: User;
+  email: string;
+  created_at: string;
 }
 
 export interface Student {
   id: string;
-  teacher_id: string;
   name: string;
   unique_student_id: string;
+  teacher_id: string;
+  created_at: string;
 }
 
 export interface Subject {
@@ -42,18 +43,16 @@ export interface Question {
   model_answer_source: 'uploaded' | 'ai_generated';
   marks: number;
   tolerance: number;
-  created_at?: string;
 }
 
 export interface AnswerScript {
   id: string;
-  student_id: string;
   examination_id: string;
-  script_image_url: string;
-  upload_timestamp: string;
-  processing_status: 'uploaded' | 'ocr_pending' | 'ocr_complete' | 'grading_pending' | 'grading_complete' | 'error';
-  student?: Student;
-  students?: Student;
+  student_id: string;
+  script_url: string;
+  status: 'pending' | 'graded' | 'failed';
+  created_at: string;
+  identification_method: 'manual' | 'qr';
 }
 
 export interface Answer {
