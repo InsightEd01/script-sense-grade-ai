@@ -8,13 +8,15 @@ const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
 const generationConfig = {
-  temperature: 0.0,
+  temperature: 0.0, // Zero temperature for consistent, deterministic results
   topP: 0.1,
   topK: 1,
   maxOutputTokens: 1024,
 };
 
 export async function generateModelAnswer(subject: string, question: string): Promise<string> {
+  console.log(`Generating model answer for subject "${subject}", question: "${question.substring(0, 50)}..."`);
+  
   const prompt = `
     Objective: Generate a concise and accurate model answer for an academic question suitable for grading handwritten student responses.
     Subject: ${subject}
@@ -25,9 +27,15 @@ export async function generateModelAnswer(subject: string, question: string): Pr
   `;
 
   try {
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig
+    });
+    
     const response = result.response;
-    return response.text().trim();
+    const answer = response.text().trim();
+    console.log(`Generated model answer (${answer.length} chars)`);
+    return answer;
   } catch (error) {
     console.error('Error generating model answer:', error);
     throw new Error(`Failed to generate model answer: ${error.message}`);
@@ -43,6 +51,9 @@ export async function gradeStudentAnswer(
   studentAnswer: string,
   customInstructions?: string
 ): Promise<{ score: number; explanation: string; flags?: string[] }> {
+  console.log(`Grading answer for subject "${subject}", max marks: ${maxMarks}, tolerance: ${tolerance}`);
+  console.log(`Student answer length: ${studentAnswer.length} chars`);
+  
   let customGradingInfo = '';
   if (customInstructions) {
     customGradingInfo = `Additional Grading Instructions: ${customInstructions}
@@ -75,13 +86,18 @@ export async function gradeStudentAnswer(
   `;
 
   try {
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { ...generationConfig, temperature: 0.0 }
+    });
+    
     const response = result.response;
     const resultText = response.text().trim();
     
     try {
       // Parse the JSON from the response text
       const cleanedJson = resultText.replace(/^```json\n|\n```$/g, '');
+      console.log('Parsed grading result successfully');
       return JSON.parse(cleanedJson);
     } catch (parseError) {
       console.error("Failed to parse Gemini response as JSON:", resultText);

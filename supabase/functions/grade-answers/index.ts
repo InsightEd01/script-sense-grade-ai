@@ -19,6 +19,8 @@ serve(async (req: Request): Promise<Response> => {
   }
   
   try {
+    console.log("Grade answers function called")
+    
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://pppteoxncuuraqjlrhir.supabase.co'
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
     
@@ -27,6 +29,8 @@ serve(async (req: Request): Promise<Response> => {
     
     // Parse request body
     const { answerScriptId, customInstructions } = await req.json()
+    
+    console.log(`Grading script ${answerScriptId}`)
     
     if (!answerScriptId) {
       return new Response(
@@ -49,6 +53,7 @@ serve(async (req: Request): Promise<Response> => {
       .single()
     
     if (scriptError) {
+      console.error(`Failed to fetch answer script: ${scriptError.message}`)
       throw new Error(`Failed to fetch answer script: ${scriptError.message}`)
     }
     
@@ -59,6 +64,7 @@ serve(async (req: Request): Promise<Response> => {
       .eq('answer_script_id', answerScriptId)
     
     if (answersError) {
+      console.error(`Failed to fetch answers: ${answersError.message}`)
       throw new Error(`Failed to fetch answers: ${answersError.message}`)
     }
     
@@ -70,15 +76,27 @@ serve(async (req: Request): Promise<Response> => {
       .single()
     
     if (subjectError) {
+      console.error(`Failed to fetch subject: ${subjectError.message}`)
       throw new Error(`Failed to fetch subject: ${subjectError.message}`)
     }
     
     // Initialize the Google AI client
+    console.log(`Initializing Gemini with model: ${MODEL_NAME}`)
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    const model = genAI.getGenerativeModel({ 
+      model: MODEL_NAME,
+      generationConfig: {
+        temperature: 0.0,
+        topK: 1,
+        topP: 0.1,
+        maxOutputTokens: 1024,
+      }
+    });
     
     // Grade each answer
     const gradingResults = []
+    console.log(`Grading ${answers.length} answers`)
+    
     for (const answer of answers) {
       if (!answer.extracted_text) {
         console.log(`Skipping answer ${answer.id} - no extracted text`)
@@ -86,42 +104,51 @@ serve(async (req: Request): Promise<Response> => {
       }
       
       const question = answer.questions
+      console.log(`Grading question: "${question.question_text.substring(0, 30)}..."`)
       
       // Grade the answer
-      const result = await gradeStudentAnswer(
-        model,
-        subjectData.name,
-        question.question_text,
-        question.marks,
-        question.tolerance,
-        question.model_answer,
-        answer.extracted_text,
-        customInstructions
-      )
-      
-      // Check if there are any flags in the result
-      const flags = result.flags && result.flags.length > 0 ? result.flags : [];
-      
-      // Update the answer with the grade
-      const { error: updateError } = await supabase
-        .from('answers')
-        .update({
-          assigned_grade: result.score,
-          llm_explanation: result.explanation,
+      try {
+        const result = await gradeStudentAnswer(
+          model,
+          subjectData.name,
+          question.question_text,
+          question.marks,
+          question.tolerance,
+          question.model_answer,
+          answer.extracted_text,
+          customInstructions
+        )
+        
+        console.log(`Grading result: ${result.score}/${question.marks}, explanation: "${result.explanation.substring(0, 50)}..."`)
+        
+        // Check if there are any flags in the result
+        const flags = result.flags && result.flags.length > 0 ? result.flags : [];
+        
+        // Update the answer with the grade
+        const { error: updateError } = await supabase
+          .from('answers')
+          .update({
+            assigned_grade: result.score,
+            llm_explanation: result.explanation,
+            flags: flags
+          })
+          .eq('id', answer.id)
+        
+        if (updateError) {
+          console.error(`Failed to update answer grade: ${updateError.message}`)
+          throw new Error(`Failed to update answer grade: ${updateError.message}`)
+        }
+        
+        gradingResults.push({
+          answerId: answer.id,
+          score: result.score,
+          explanation: result.explanation,
           flags: flags
         })
-        .eq('id', answer.id)
-      
-      if (updateError) {
-        throw new Error(`Failed to update answer grade: ${updateError.message}`)
+      } catch (gradeError) {
+        console.error(`Error grading answer ${answer.id}:`, gradeError)
+        // Continue to the next answer even if one fails
       }
-      
-      gradingResults.push({
-        answerId: answer.id,
-        score: result.score,
-        explanation: result.explanation,
-        flags: flags
-      })
     }
     
     // Update script status to grading complete
@@ -207,7 +234,10 @@ async function gradeStudentAnswer(
   `;
 
   try {
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
+    
     const response = result.response;
     const resultText = response.text().trim();
     

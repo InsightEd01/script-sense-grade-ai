@@ -2,7 +2,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
-import { Tesseract, type Page } from 'npm:tesseract.js'
+import { createWorker } from "https://esm.sh/tesseract.js@4.0.3"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,6 +16,8 @@ serve(async (req: Request): Promise<Response> => {
   }
   
   try {
+    console.log("OCR function called")
+    
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://pppteoxncuuraqjlrhir.supabase.co'
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
     
@@ -32,6 +34,8 @@ serve(async (req: Request): Promise<Response> => {
       )
     }
     
+    console.log(`Processing script ${answerScriptId} with image ${imageUrl}`)
+    
     // Update script status to OCR pending
     await supabase
       .from('answer_scripts')
@@ -46,6 +50,7 @@ serve(async (req: Request): Promise<Response> => {
       .single()
     
     if (scriptError) {
+      console.error(`Failed to fetch answer script: ${scriptError.message}`)
       throw new Error(`Failed to fetch answer script: ${scriptError.message}`)
     }
     
@@ -57,6 +62,7 @@ serve(async (req: Request): Promise<Response> => {
       .order('created_at')
     
     if (questionsError) {
+      console.error(`Failed to fetch questions: ${questionsError.message}`)
       throw new Error(`Failed to fetch questions: ${questionsError.message}`)
     }
     
@@ -78,6 +84,8 @@ serve(async (req: Request): Promise<Response> => {
     for (let i = 0; i < questions.length; i++) {
       const question = questions[i]
       const extractedText = segmentedAnswers[i] || ''
+      
+      console.log(`Creating answer record for question ${i+1}, text length: ${extractedText.length}`)
       
       // Create or update the answer record
       await supabase.from('answers').upsert({
@@ -130,38 +138,85 @@ serve(async (req: Request): Promise<Response> => {
 
 async function performOCR(imageUrl: string): Promise<{ text: string }> {
   try {
-    const worker = await Tesseract.createWorker('eng')
+    console.log('Creating Tesseract worker')
+    
+    // Create a worker with better settings for handwritten text
+    const worker = await createWorker('eng', 1, {
+      logger: m => console.log(`Tesseract: ${m.status} (${Math.floor(m.progress * 100)}%)`)
+    })
+    
+    // Configure for better handwriting recognition
+    await worker.setParameters({
+      tessedit_ocr_engine_mode: 1, // LSTM_ONLY mode
+      tessedit_pageseg_mode: 6,    // Assume a single uniform block of text
+      preserve_interword_spaces: '1',
+    })
+    
+    console.log('Recognizing text from image')
     const result = await worker.recognize(imageUrl)
+    console.log(`OCR completed with confidence: ${result.data.confidence}%`)
+    
     await worker.terminate()
     return { text: result.data.text }
   } catch (error) {
     console.error('Tesseract OCR error:', error)
-    throw new Error('Failed to extract text from image')
+    throw new Error('Failed to extract text from image: ' + error.message)
   }
 }
 
 function segmentAnswers(extractedText: string, questionCount: number): string[] {
-  // Basic segmentation algorithm
+  console.log(`Segmenting answers, question count: ${questionCount}`)
+  
+  // Basic segmentation algorithm - improved version
   const segmentedAnswers: string[] = []
   
-  // Try to identify question markers
-  const questionRegex = /(?:^|\n)\s*(?:q(?:uestion)?\s*(\d+)|(\d+)\s*[\)\.:])/gi
-  const matches = [...extractedText.matchAll(questionRegex)]
+  // Try to identify question markers with multiple patterns
+  const questionPatterns = [
+    /(?:^|\n)\s*(?:q(?:uestion)?\s*(\d+)|(\d+)\s*[\)\.:])/gi,
+    /(?:^|\n)\s*(?:a(?:nswer)?\s*(\d+)|(\d+)\s*[\)\.:])/gi,
+    /(?:^|\n)(?:in|for|to) (?:question|q)\.?\s*(\d+)/gi
+  ]
   
-  if (matches.length >= questionCount) {
-    // We found enough markers to segment by
-    for (let i = 0; i < questionCount; i++) {
-      const start = matches[i].index || 0
-      const end = i < matches.length - 1 ? matches[i + 1].index : extractedText.length
-      segmentedAnswers[i] = extractedText.substring(start, end).trim()
+  // Try each pattern
+  for (const pattern of questionPatterns) {
+    const matches = Array.from(extractedText.matchAll(pattern))
+    console.log(`Found ${matches.length} matches with pattern`)
+    
+    if (matches.length >= questionCount) {
+      // We found enough markers to segment by
+      for (let i = 0; i < questionCount; i++) {
+        const start = matches[i].index || 0
+        const end = i < matches.length - 1 ? matches[i + 1].index : extractedText.length
+        segmentedAnswers[i] = extractedText.substring(start, end).trim()
+        console.log(`Segmented answer ${i+1}: ${segmentedAnswers[i].substring(0, 30)}...`)
+      }
+      
+      // If we successfully found segments, return them
+      if (segmentedAnswers.length === questionCount) {
+        return segmentedAnswers
+      }
     }
-  } else {
-    // If we couldn't segment by markers, try dividing the text evenly
-    const avgLength = Math.floor(extractedText.length / questionCount)
-    for (let i = 0; i < questionCount; i++) {
-      const start = i * avgLength
-      const end = (i + 1 === questionCount) ? extractedText.length : (i + 1) * avgLength
-      segmentedAnswers[i] = extractedText.substring(start, end).trim()
+  }
+  
+  // If we couldn't segment by markers, try using paragraph breaks
+  if (segmentedAnswers.length < questionCount) {
+    console.log('Using paragraph breaks for segmentation')
+    const paragraphs = extractedText.split(/\n\s*\n/)
+    
+    if (paragraphs.length >= questionCount) {
+      // If we have enough paragraphs, use them for segmentation
+      for (let i = 0; i < questionCount; i++) {
+        segmentedAnswers[i] = paragraphs[i].trim()
+      }
+    } else {
+      // Last resort: dividing the text evenly
+      console.log('Using equal division for segmentation')
+      const avgLength = Math.floor(extractedText.length / questionCount)
+      for (let i = 0; i < questionCount; i++) {
+        const start = i * avgLength
+        const end = (i + 1 === questionCount) ? extractedText.length : (i + 1) * avgLength
+        segmentedAnswers[i] = extractedText.substring(start, end).trim()
+      }
     }
   }
   
