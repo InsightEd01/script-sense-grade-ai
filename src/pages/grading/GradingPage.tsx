@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/use-toast';
-import { Upload, Search, ChevronLeft, FileText, CheckCircle, XCircle, Clock, AlertCircle, Loader2 } from 'lucide-react';
+import { Upload, Search, ChevronLeft, FileText, CheckCircle, XCircle, Clock, AlertCircle, Loader2, Flag } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Loading } from '@/components/ui/loading';
@@ -17,6 +17,7 @@ import { AnswerScript, Examination, Student } from '@/types/supabase';
 import { UploadScriptForm } from '@/components/grading/UploadScriptForm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { format } from 'date-fns';
+import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 
 const GradingPage = () => {
@@ -26,6 +27,8 @@ const GradingPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [selectedExamination, setSelectedExamination] = useState<Examination | null>(null);
+  const [customInstructions, setCustomInstructions] = useState('');
+  const [isProcessing, setIsProcessing] = useState<{ [key: string]: boolean }>({});
   
   // Get the examinationId from the URL query parameters
   const searchParams = new URLSearchParams(location.search);
@@ -38,8 +41,18 @@ const GradingPage = () => {
   } = useQuery({
     queryKey: ['all_examinations'],
     queryFn: async () => {
-      const allSubjects = await getExaminationsBySubject('all');
-      return allSubjects;
+      try {
+        const allSubjects = await getExaminationsBySubject('all');
+        return allSubjects;
+      } catch (error) {
+        console.error('Error fetching examinations:', error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to load examinations. Please try again.",
+        });
+        return [];
+      }
     },
     enabled: !!user
   });
@@ -87,6 +100,8 @@ const GradingPage = () => {
   
   const handleProcessScript = async (scriptId: string) => {
     try {
+      setIsProcessing(prev => ({ ...prev, [scriptId]: true }));
+      
       // Call the Supabase edge function to process the script
       const { data, error } = await supabase.functions.invoke('process-ocr', {
         body: {
@@ -111,10 +126,47 @@ const GradingPage = () => {
         title: "Error",
         description: "Failed to process the script. Please try again.",
       });
+    } finally {
+      setIsProcessing(prev => ({ ...prev, [scriptId]: false }));
     }
   };
   
-  const getStatusBadge = (status: string) => {
+  const handleGradeScript = async (scriptId: string) => {
+    try {
+      setIsProcessing(prev => ({ ...prev, [scriptId]: true }));
+      
+      // Call the Supabase edge function to grade the script
+      const { data, error } = await supabase.functions.invoke('grade-answers', {
+        body: {
+          answerScriptId: scriptId,
+          customInstructions: customInstructions || undefined
+        }
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      refetchScripts();
+      toast({
+        title: "Grading Complete",
+        description: "The answer script has been graded successfully.",
+      });
+    } catch (error) {
+      console.error('Error grading script:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to grade the script. Please try again.",
+      });
+    } finally {
+      setIsProcessing(prev => ({ ...prev, [scriptId]: false }));
+    }
+  };
+  
+  const getStatusBadge = (status: string, flags?: string[]) => {
+    const hasMisconductFlags = flags && flags.length > 0;
+    
     switch (status) {
       case 'uploaded':
         return <Badge variant="outline"><Clock className="mr-1 h-3 w-3" /> Pending OCR</Badge>;
@@ -125,7 +177,14 @@ const GradingPage = () => {
       case 'grading_pending':
         return <Badge variant="outline"><Clock className="mr-1 h-3 w-3 text-yellow-500" /> Pending Grading</Badge>;
       case 'grading_complete':
-        return <Badge variant="outline"><CheckCircle className="mr-1 h-3 w-3 text-green-500" /> Graded</Badge>;
+        return (
+          <div className="flex gap-2">
+            <Badge variant="outline"><CheckCircle className="mr-1 h-3 w-3 text-green-500" /> Graded</Badge>
+            {hasMisconductFlags && (
+              <Badge variant="destructive"><Flag className="mr-1 h-3 w-3" /> Misconduct Flags</Badge>
+            )}
+          </div>
+        );
       case 'error':
         return <Badge variant="destructive"><XCircle className="mr-1 h-3 w-3" /> Error</Badge>;
       default:
@@ -167,7 +226,7 @@ const GradingPage = () => {
                   Upload Scripts
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[500px]">
+              <DialogContent className="sm:max-w-[650px]">
                 <DialogHeader>
                   <DialogTitle>Upload Answer Script</DialogTitle>
                 </DialogHeader>
@@ -213,106 +272,162 @@ const GradingPage = () => {
             </CardContent>
           </Card>
         ) : selectedExamination && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Answer Script Management</CardTitle>
-              <CardDescription>
-                Process and grade student answer scripts using OCR and AI.
-              </CardDescription>
-              <div className="flex items-center space-x-2 mt-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-                  <Input
-                    type="search"
-                    placeholder="Search by student name or ID..."
-                    className="pl-8"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+          <>
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle>Grading Instructions</CardTitle>
+                <CardDescription>
+                  Add custom instructions for the AI grading engine
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <Textarea 
+                    placeholder="Enter custom instructions for grading (optional)..."
+                    value={customInstructions}
+                    onChange={(e) => setCustomInstructions(e.target.value)}
+                    className="min-h-[100px]"
                   />
+                  <p className="text-sm text-muted-foreground">
+                    These instructions will be applied when grading scripts. Examples: "Focus on concept understanding rather than exact wording" or "Pay special attention to correct mathematical notation"
+                  </p>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {isLoadingScripts ? (
-                <Loading text="Loading answer scripts..." />
-              ) : isError ? (
-                <div className="text-center py-10 text-red-500">
-                  <p>Failed to load answer scripts. Please try again later.</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Answer Script Management</CardTitle>
+                <CardDescription>
+                  Process and grade student answer scripts using OCR and AI.
+                </CardDescription>
+                <div className="flex items-center space-x-2 mt-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+                    <Input
+                      type="search"
+                      placeholder="Search by student name or ID..."
+                      className="pl-8"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
                 </div>
-              ) : filteredScripts && filteredScripts.length > 0 ? (
-                <div className="space-y-4">
-                  {filteredScripts.map((script) => (
-                    <Card key={script.id} className="overflow-hidden">
-                      <div className="flex flex-col md:flex-row">
-                        <div className="w-full md:w-1/4 p-4 bg-muted/30 flex items-center justify-center">
-                          <div className="text-center">
-                            <FileText className="h-10 w-10 mx-auto text-muted-foreground" />
-                            <h3 className="mt-2 font-medium">
-                              {script.student?.name || 'Unknown Student'}
-                            </h3>
-                            <p className="text-sm text-muted-foreground">
-                              ID: {script.student?.unique_student_id || 'N/A'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex-1 p-4">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <div className="mb-2">
-                                {getStatusBadge(script.processing_status)}
-                              </div>
-                              <p className="text-sm text-muted-foreground mb-2">
-                                Uploaded: {format(new Date(script.upload_timestamp), 'PPP')}
+              </CardHeader>
+              <CardContent>
+                {isLoadingScripts ? (
+                  <Loading text="Loading answer scripts..." />
+                ) : isError ? (
+                  <div className="text-center py-10 text-red-500">
+                    <p>Failed to load answer scripts. Please try again later.</p>
+                  </div>
+                ) : filteredScripts && filteredScripts.length > 0 ? (
+                  <div className="space-y-4">
+                    {filteredScripts.map((script) => (
+                      <Card key={script.id} className="overflow-hidden">
+                        <div className="flex flex-col md:flex-row">
+                          <div className="w-full md:w-1/4 p-4 bg-muted/30 flex items-center justify-center">
+                            <div className="text-center">
+                              <FileText className="h-10 w-10 mx-auto text-muted-foreground" />
+                              <h3 className="mt-2 font-medium">
+                                {script.student?.name || 'Unknown Student'}
+                              </h3>
+                              <p className="text-sm text-muted-foreground">
+                                ID: {script.student?.unique_student_id || 'N/A'}
                               </p>
                             </div>
-                            <div className="space-x-2">
-                              {script.processing_status === 'uploaded' && (
-                                <Button 
-                                  size="sm" 
-                                  onClick={() => handleProcessScript(script.id)}
-                                >
-                                  <Clock className="mr-1 h-4 w-4" />
-                                  Process with OCR
-                                </Button>
-                              )}
-                              {script.processing_status === 'grading_complete' && (
+                          </div>
+                          <div className="flex-1 p-4">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <div className="mb-2">
+                                  {getStatusBadge(script.processing_status, script.flags)}
+                                </div>
+                                <p className="text-sm text-muted-foreground mb-2">
+                                  Uploaded: {format(new Date(script.upload_timestamp), 'PPP')}
+                                </p>
+                              </div>
+                              <div className="space-x-2">
+                                {script.processing_status === 'uploaded' && (
+                                  <Button 
+                                    size="sm" 
+                                    onClick={() => handleProcessScript(script.id)}
+                                    disabled={isProcessing[script.id]}
+                                  >
+                                    {isProcessing[script.id] ? (
+                                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Clock className="mr-1 h-4 w-4" />
+                                    )}
+                                    Process with OCR
+                                  </Button>
+                                )}
+                                {script.processing_status === 'ocr_complete' && (
+                                  <Button 
+                                    size="sm"
+                                    onClick={() => handleGradeScript(script.id)}
+                                    disabled={isProcessing[script.id]}
+                                  >
+                                    {isProcessing[script.id] ? (
+                                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <CheckCircle className="mr-1 h-4 w-4" />
+                                    )}
+                                    Grade Script
+                                  </Button>
+                                )}
+                                {script.processing_status === 'grading_complete' && (
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => navigate(`/grading/${script.id}`)}
+                                  >
+                                    <FileText className="mr-1 h-4 w-4" />
+                                    View Results
+                                  </Button>
+                                )}
                                 <Button 
                                   variant="outline" 
-                                  size="sm"
-                                  onClick={() => navigate(`/grading/${script.id}`)}
+                                  size="sm" 
+                                  onClick={() => window.open(script.script_image_url, '_blank')}
                                 >
-                                  <FileText className="mr-1 h-4 w-4" />
-                                  View Results
+                                  View Image
                                 </Button>
-                              )}
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => window.open(script.script_image_url, '_blank')}
-                              >
-                                View Image
-                              </Button>
+                              </div>
                             </div>
+                            
+                            {script.flags && script.flags.length > 0 && (
+                              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                                <p className="text-sm font-semibold text-red-800 flex items-center">
+                                  <Flag className="h-4 w-4 mr-2" /> Potential Misconduct Flags:
+                                </p>
+                                <ul className="mt-1 text-sm text-red-700 list-disc list-inside">
+                                  {script.flags.map((flag, index) => (
+                                    <li key={index}>{flag}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
                           </div>
                         </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-10">
-                  <p className="text-muted-foreground">No answer scripts found for this examination. Upload your first script to get started.</p>
-                  <Button 
-                    onClick={() => setIsUploadOpen(true)} 
-                    className="mt-4 bg-scriptsense-primary"
-                  >
-                    <Upload className="mr-2 h-4 w-4" />
-                    Upload First Script
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-10">
+                    <p className="text-muted-foreground">No answer scripts found for this examination. Upload your first script to get started.</p>
+                    <Button 
+                      onClick={() => setIsUploadOpen(true)} 
+                      className="mt-4 bg-scriptsense-primary"
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload First Script
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>
         )}
       </div>
     </DashboardLayout>

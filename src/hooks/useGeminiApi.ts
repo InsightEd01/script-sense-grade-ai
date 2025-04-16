@@ -1,19 +1,10 @@
 
 import { useState, useCallback } from 'react';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { GradingResult } from '@/types/supabase';
 
-const GEMINI_API_KEY = "AIzaSyBBguG3m3mglvQzUXALiTccH73gpRFM1c8";
-const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
-
-interface GeminiResponse {
-  candidates: {
-    content: {
-      parts: {
-        text: string;
-      }[];
-    };
-  }[];
-}
+const GEMINI_API_KEY = "AIzaSyBBe5atwksC1l0hXhCudRs6oYIcu7ZdxhA";
+const MODEL_NAME = "gemini-pro";
 
 export function useGeminiApi() {
   const [isLoading, setIsLoading] = useState(false);
@@ -23,6 +14,9 @@ export function useGeminiApi() {
     setIsLoading(true);
     setError(null);
     try {
+      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+      
       const prompt = `
         Objective: Generate a concise and accurate model answer for an academic question suitable for grading handwritten student responses.
         Subject: ${subject}
@@ -32,37 +26,9 @@ export function useGeminiApi() {
         Model Answer:
       `;
 
-      const response = await fetch(`${API_URL}?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: prompt
-                }
-              ]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.0,
-            topP: 0.1,
-            topK: 16,
-            maxOutputTokens: 2048,
-          }
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Gemini API error: ${errorText}`);
-      }
-
-      const data = await response.json() as GeminiResponse;
-      return data.candidates[0].content.parts[0].text.trim();
+      const result = await model.generateContent(prompt);
+      const response = result.response;
+      return response.text().trim();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       setError(errorMessage);
@@ -78,11 +44,21 @@ export function useGeminiApi() {
     maxMarks: number, 
     tolerance: number, 
     modelAnswer: string, 
-    studentAnswer: string
+    studentAnswer: string,
+    customInstructions?: string
   ): Promise<GradingResult> => {
     setIsLoading(true);
     setError(null);
     try {
+      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+      
+      let customGradingInfo = '';
+      if (customInstructions) {
+        customGradingInfo = `Additional Grading Instructions: ${customInstructions}
+        `;
+      }
+      
       const prompt = `
         Objective: Evaluate a student's handwritten answer against a model answer based on semantic meaning and assign a score.
         Subject: ${subject}
@@ -91,52 +67,26 @@ export function useGeminiApi() {
         Required Semantic Similarity Tolerance: ${tolerance} (A higher value means the student's answer must be closer in meaning to the model answer).
         Model Answer: "${modelAnswer}"
         Student's Answer (from OCR): "${studentAnswer}"
-
+        ${customGradingInfo}
         Instructions:
         1. Analyze the semantic meaning and key concepts present in the "Student's Answer".
         2. Compare this meaning to the "Model Answer".
         3. Determine the degree of semantic alignment between the student's answer and the model answer.
         4. Assign a score from 0 to ${maxMarks} based on this alignment, considering the "Required Semantic Similarity Tolerance". A score of ${maxMarks} should be given if the alignment meets or exceeds the tolerance threshold. Award partial credit proportionately if key concepts are partially present or alignment is close but below the threshold.
         5. Provide a brief, one-sentence explanation for the assigned score, mentioning key alignments or deviations.
+        6. Look for potential academic misconduct like cheating or plagiarism signs, and add any flags to an array.
 
         Output Format (JSON):
         {
           "score": <assigned score (float)>,
-          "explanation": "<brief explanation (string)>"
+          "explanation": "<brief explanation (string)>",
+          "flags": ["<potential issue or warning>"]
         }
       `;
 
-      const response = await fetch(`${API_URL}?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: prompt
-                }
-              ]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.0,
-            topP: 0.1,
-            topK: 16,
-            maxOutputTokens: 1024,
-          }
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Gemini API error: ${errorText}`);
-      }
-
-      const data = await response.json() as GeminiResponse;
-      const resultText = data.candidates[0].content.parts[0].text.trim();
+      const result = await model.generateContent(prompt);
+      const response = result.response;
+      const resultText = response.text().trim();
       
       try {
         // Parse the JSON from the response text

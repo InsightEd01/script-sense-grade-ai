@@ -2,13 +2,13 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const GEMINI_API_KEY = 'AIzaSyBBe5atwksC1l0hXhCudRs6oYIcu7ZdxhA';
-const MODEL_NAME = 'gemini-2.0-flash'; // Using the correct model name
+const MODEL_NAME = 'gemini-pro'; // Using the correct model name
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
 const generationConfig = {
-  temperature: 0.5,
+  temperature: 0.0,
   topP: 0.1,
   topK: 1,
   maxOutputTokens: 1024,
@@ -25,11 +25,7 @@ export async function generateModelAnswer(subject: string, question: string): Pr
   `;
 
   try {
-    const result = await model.generateContent({
-      contents: [{ text: prompt }],
-      generationConfig,
-    });
-
+    const result = await model.generateContent(prompt);
     const response = result.response;
     return response.text().trim();
   } catch (error) {
@@ -44,8 +40,15 @@ export async function gradeStudentAnswer(
   maxMarks: number, 
   tolerance: number, 
   modelAnswer: string, 
-  studentAnswer: string
-): Promise<{ score: number; explanation: string }> {
+  studentAnswer: string,
+  customInstructions?: string
+): Promise<{ score: number; explanation: string; flags?: string[] }> {
+  let customGradingInfo = '';
+  if (customInstructions) {
+    customGradingInfo = `Additional Grading Instructions: ${customInstructions}
+    `;
+  }
+
   const prompt = `
     Objective: Evaluate a student's handwritten answer against a model answer based on semantic meaning and assign a score.
     Subject: ${subject}
@@ -54,30 +57,25 @@ export async function gradeStudentAnswer(
     Required Semantic Similarity Tolerance: ${tolerance} (A higher value means the student's answer must be closer in meaning to the model answer).
     Model Answer: "${modelAnswer}"
     Student's Answer (from OCR): "${studentAnswer}"
-
+    ${customGradingInfo}
     Instructions:
     1. Analyze the semantic meaning and key concepts present in the "Student's Answer".
     2. Compare this meaning to the "Model Answer".
     3. Determine the degree of semantic alignment between the student's answer and the model answer.
     4. Assign a score from 0 to ${maxMarks} based on this alignment, considering the "Required Semantic Similarity Tolerance". A score of ${maxMarks} should be given if the alignment meets or exceeds the tolerance threshold. Award partial credit proportionately if key concepts are partially present or alignment is close but below the threshold.
     5. Provide a brief, one-sentence explanation for the assigned score, mentioning key alignments or deviations.
+    6. Look for potential academic misconduct like cheating or plagiarism signs, and add any flags to an array.
 
     Output Format (JSON):
     {
       "score": <assigned score (float)>,
-      "explanation": "<brief explanation (string)>"
+      "explanation": "<brief explanation (string)>",
+      "flags": ["<potential issue or warning>"]
     }
   `;
 
   try {
-    const result = await model.generateContent({
-      contents: [{ text: prompt }],
-      generationConfig: {
-        ...generationConfig,
-        maxOutputTokens: 1024,
-      },
-    });
-
+    const result = await model.generateContent(prompt);
     const response = result.response;
     const resultText = response.text().trim();
     
@@ -94,4 +92,3 @@ export async function gradeStudentAnswer(
     throw new Error(`Failed to grade student answer: ${error.message}`);
   }
 }
-

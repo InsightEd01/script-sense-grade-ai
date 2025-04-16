@@ -2,14 +2,15 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
+import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@2.0.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const GEMINI_API_KEY = "AIzaSyBBguG3m3mglvQzUXALiTccH73gpRFM1c8"
-const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
+const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') || "AIzaSyBBguG3m3mglvQzUXALiTccH73gpRFM1c8"
+const MODEL_NAME = "gemini-pro"
 
 serve(async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
@@ -25,7 +26,7 @@ serve(async (req: Request): Promise<Response> => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
     
     // Parse request body
-    const { answerScriptId } = await req.json()
+    const { answerScriptId, customInstructions } = await req.json()
     
     if (!answerScriptId) {
       return new Response(
@@ -72,6 +73,10 @@ serve(async (req: Request): Promise<Response> => {
       throw new Error(`Failed to fetch subject: ${subjectError.message}`)
     }
     
+    // Initialize the Google AI client
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    
     // Grade each answer
     const gradingResults = []
     for (const answer of answers) {
@@ -84,20 +89,26 @@ serve(async (req: Request): Promise<Response> => {
       
       // Grade the answer
       const result = await gradeStudentAnswer(
+        model,
         subjectData.name,
         question.question_text,
         question.marks,
         question.tolerance,
         question.model_answer,
-        answer.extracted_text
+        answer.extracted_text,
+        customInstructions
       )
+      
+      // Check if there are any flags in the result
+      const flags = result.flags && result.flags.length > 0 ? result.flags : [];
       
       // Update the answer with the grade
       const { error: updateError } = await supabase
         .from('answers')
         .update({
           assigned_grade: result.score,
-          llm_explanation: result.explanation
+          llm_explanation: result.explanation,
+          flags: flags
         })
         .eq('id', answer.id)
       
@@ -108,7 +119,8 @@ serve(async (req: Request): Promise<Response> => {
       gradingResults.push({
         answerId: answer.id,
         score: result.score,
-        explanation: result.explanation
+        explanation: result.explanation,
+        flags: flags
       })
     }
     
@@ -154,13 +166,21 @@ serve(async (req: Request): Promise<Response> => {
 })
 
 async function gradeStudentAnswer(
+  model,
   subject: string, 
   question: string, 
   maxMarks: number, 
   tolerance: number, 
   modelAnswer: string, 
-  studentAnswer: string
-): Promise<{ score: number; explanation: string }> {
+  studentAnswer: string,
+  customInstructions?: string
+): Promise<{ score: number; explanation: string; flags?: string[] }> {
+  let customGradingInfo = '';
+  if (customInstructions) {
+    customGradingInfo = `Additional Grading Instructions: ${customInstructions}
+    `;
+  }
+
   const prompt = `
     Objective: Evaluate a student's handwritten answer against a model answer based on semantic meaning and assign a score.
     Subject: ${subject}
@@ -169,68 +189,43 @@ async function gradeStudentAnswer(
     Required Semantic Similarity Tolerance: ${tolerance} (A higher value means the student's answer must be closer in meaning to the model answer).
     Model Answer: "${modelAnswer}"
     Student's Answer (from OCR): "${studentAnswer}"
-
+    ${customGradingInfo}
     Instructions:
     1. Analyze the semantic meaning and key concepts present in the "Student's Answer".
     2. Compare this meaning to the "Model Answer".
     3. Determine the degree of semantic alignment between the student's answer and the model answer.
     4. Assign a score from 0 to ${maxMarks} based on this alignment, considering the "Required Semantic Similarity Tolerance". A score of ${maxMarks} should be given if the alignment meets or exceeds the tolerance threshold. Award partial credit proportionately if key concepts are partially present or alignment is close but below the threshold.
     5. Provide a brief, one-sentence explanation for the assigned score, mentioning key alignments or deviations.
+    6. Look for potential academic misconduct like cheating or plagiarism signs, and add any flags to an array.
 
     Output Format (JSON):
     {
       "score": <assigned score (float)>,
-      "explanation": "<brief explanation (string)>"
+      "explanation": "<brief explanation (string)>",
+      "flags": ["<potential issue or warning>"]
     }
-  `
+  `;
 
   try {
-    const response = await fetch(`${API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: prompt
-              }
-            ]
-          }
-        ],
-        generationConfig: {
-          temperature: 0.0,
-          topP: 0.1,
-          topK: 16,
-          maxOutputTokens: 1024,
-        }
-      })
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Gemini API error: ${errorText}`)
-    }
-
-    const data = await response.json()
-    const resultText = data.candidates[0].content.parts[0].text.trim()
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const resultText = response.text().trim();
     
     try {
       // Parse the JSON from the response text
-      const cleanedJson = resultText.replace(/^```json\n|\n```$/g, '')
-      return JSON.parse(cleanedJson)
+      const cleanedJson = resultText.replace(/^```json\n|\n```$/g, '');
+      return JSON.parse(cleanedJson);
     } catch (parseError) {
-      console.error("Failed to parse Gemini response as JSON:", resultText)
+      console.error("Failed to parse Gemini response as JSON:", resultText);
       // If parsing fails, create a fallback response
       return {
         score: 0,
-        explanation: "Failed to parse grading result from Gemini API"
-      }
+        explanation: "Failed to parse grading result from Gemini API",
+        flags: ["Error processing response"]
+      };
     }
   } catch (error) {
-    console.error("Error calling Gemini API:", error)
-    throw error
+    console.error("Error calling Gemini API:", error);
+    throw error;
   }
 }
