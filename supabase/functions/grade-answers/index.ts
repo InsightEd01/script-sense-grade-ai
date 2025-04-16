@@ -2,7 +2,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
-import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@2.0.0";
+import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.2.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
