@@ -1,16 +1,18 @@
 
-const GEMINI_API_KEY = 'AIzaSyBBe5atwksC1l0hXhCudRs6oYIcu7ZdxhA';
-const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-export interface GeminiResponse {
-  candidates: {
-    content: {
-      parts: {
-        text: string;
-      }[];
-    };
-  }[];
-}
+const GEMINI_API_KEY = 'AIzaSyBBe5atwksC1l0hXhCudRs6oYIcu7ZdxhA';
+const MODEL_NAME = "gemini-pro"; // Using the correct model name
+
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+
+const generationConfig = {
+  temperature: 0.0,
+  topP: 0.1,
+  topK: 16,
+  maxOutputTokens: 2048,
+};
 
 export async function generateModelAnswer(subject: string, question: string): Promise<string> {
   const prompt = `
@@ -22,37 +24,18 @@ export async function generateModelAnswer(subject: string, question: string): Pr
     Model Answer:
   `;
 
-  const response = await fetch(`${API_URL}?key=${GEMINI_API_KEY}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            {
-              text: prompt
-            }
-          ]
-        }
-      ],
-      generationConfig: {
-        temperature: 0.0,
-        topP: 0.1,
-        topK: 16,
-        maxOutputTokens: 2048,
-      }
-    })
-  });
+  try {
+    const result = await model.generateContent({
+      contents: [{ text: prompt }],
+      generationConfig,
+    });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Gemini API error: ${error}`);
+    const response = result.response;
+    return response.text().trim();
+  } catch (error) {
+    console.error('Error generating model answer:', error);
+    throw new Error(`Failed to generate model answer: ${error.message}`);
   }
-
-  const data = await response.json() as GeminiResponse;
-  return data.candidates[0].content.parts[0].text.trim();
 }
 
 export async function gradeStudentAnswer(
@@ -86,45 +69,29 @@ export async function gradeStudentAnswer(
     }
   `;
 
-  const response = await fetch(`${API_URL}?key=${GEMINI_API_KEY}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            {
-              text: prompt
-            }
-          ]
-        }
-      ],
-      generationConfig: {
-        temperature: 0.0,
-        topP: 0.1,
-        topK: 16,
-        maxOutputTokens: 1024,
-      }
-    })
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Gemini API error: ${error}`);
-  }
-
-  const data = await response.json() as GeminiResponse;
-  const resultText = data.candidates[0].content.parts[0].text.trim();
-  
   try {
-    // Parse the JSON from the response text
-    // The API might return the JSON string with markdown backticks, so we need to clean it
-    const cleanedJson = resultText.replace(/^```json\n|\n```$/g, '');
-    return JSON.parse(cleanedJson);
+    const result = await model.generateContent({
+      contents: [{ text: prompt }],
+      generationConfig: {
+        ...generationConfig,
+        maxOutputTokens: 1024,
+      },
+    });
+
+    const response = result.response;
+    const resultText = response.text().trim();
+    
+    try {
+      // Parse the JSON from the response text
+      const cleanedJson = resultText.replace(/^```json\n|\n```$/g, '');
+      return JSON.parse(cleanedJson);
+    } catch (parseError) {
+      console.error("Failed to parse Gemini response as JSON:", resultText);
+      throw new Error("Failed to parse grading result from Gemini API");
+    }
   } catch (error) {
-    console.error("Failed to parse Gemini response as JSON:", resultText);
-    throw new Error("Failed to parse grading result from Gemini API");
+    console.error('Error grading student answer:', error);
+    throw new Error(`Failed to grade student answer: ${error.message}`);
   }
 }
+
