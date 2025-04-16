@@ -2,13 +2,13 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const GEMINI_API_KEY = 'AIzaSyBBe5atwksC1l0hXhCudRs6oYIcu7ZdxhA';
-const MODEL_NAME = "gemini-pro"; // Using the correct model name
+const MODEL_NAME = "gemini-2.0-flash"; // Using the correct model name
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
 const generationConfig = {
-  temperature: 0.0,
+  temperature: 0.5,
   topP: 0.1,
   topK: 16,
   maxOutputTokens: 2048,
