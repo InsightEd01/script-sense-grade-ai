@@ -3,8 +3,8 @@ import { useState, useCallback } from 'react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { GradingResult } from '@/types/supabase';
 
-const GEMINI_API_KEY = "AIzaSyBBe5atwksC1l0hXhCudRs6oYIcu7ZdxhA";
-const MODEL_NAME = "gemini-pro";
+const GEMINI_API_KEY = 'AIzaSyBBe5atwksC1l0hXhCudRs6oYIcu7ZdxhA';
+const MODEL_NAME = 'gemini-2.0-flash';
 
 export function useGeminiApi() {
   const [isLoading, setIsLoading] = useState(false);
