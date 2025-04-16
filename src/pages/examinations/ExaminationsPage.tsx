@@ -36,7 +36,7 @@ const ExaminationsPage = () => {
     isLoading: isLoadingSubjects
   } = useQuery({
     queryKey: ['subjects'],
-    queryFn: getSubjects,
+    queryFn: () => getSubjects(),
     enabled: !!user
   });
   

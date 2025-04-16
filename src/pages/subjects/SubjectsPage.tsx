@@ -30,7 +30,7 @@ const SubjectsPage = () => {
     refetch
   } = useQuery({
     queryKey: ['subjects'],
-    queryFn: getSubjects,
+    queryFn: () => getSubjects(),
     enabled: !!user
   });
   

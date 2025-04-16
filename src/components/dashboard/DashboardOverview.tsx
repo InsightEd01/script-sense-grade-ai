@@ -17,7 +17,7 @@ export function DashboardOverview() {
   
   const { data: subjects, isLoading: isLoadingSubjects } = useQuery({
     queryKey: ['subjects'],
-    queryFn: getSubjects,
+    queryFn: () => getSubjects(),
     enabled: !!user
   });
   

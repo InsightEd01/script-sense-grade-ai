@@ -15,7 +15,7 @@ const DashboardPage = () => {
   
   const { data: subjects } = useQuery({
     queryKey: ['subjects'],
-    queryFn: getSubjects,
+    queryFn: () => getSubjects(),
     enabled: !!user
   });
   
