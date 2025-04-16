@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Subject, Examination, Student, Teacher, AnswerScript } from '@/types/supabase';
 
@@ -163,7 +162,7 @@ export const getStudents = async (): Promise<Student[]> => {
     throw error;
   }
   
-  return data || [];
+  return data as Student[] || [];
 };
 
 export const createStudent = async (student: { teacher_id: string; name: string; unique_student_id: string }): Promise<Student> => {
@@ -178,7 +177,7 @@ export const createStudent = async (student: { teacher_id: string; name: string;
     throw error;
   }
   
-  return data;
+  return data as Student;
 };
 
 export const deleteStudent = async (id: string): Promise<void> => {
@@ -203,7 +202,7 @@ export const getTeachers = async (): Promise<Teacher[]> => {
     throw error;
   }
   
-  return data || [];
+  return data as Teacher[] || [];
 };
 
 export const deleteTeacher = async (id: string): Promise<void> => {
@@ -218,10 +217,16 @@ export const deleteTeacher = async (id: string): Promise<void> => {
   }
 };
 
-export const createAnswerScript = async (data: Partial<AnswerScript>): Promise<AnswerScript> => {
+export const createAnswerScript = async (script: {
+  student_id: string;
+  examination_id: string;
+  script_image_url: string;
+  processing_status: 'uploaded' | 'ocr_pending' | 'ocr_complete' | 'grading_pending' | 'grading_complete' | 'error';
+  upload_timestamp?: string;
+}): Promise<AnswerScript> => {
   const { data: newScript, error } = await supabase
     .from('answer_scripts')
-    .insert([data])
+    .insert([script])
     .select()
     .single();
     
@@ -230,13 +235,13 @@ export const createAnswerScript = async (data: Partial<AnswerScript>): Promise<A
     throw error;
   }
   
-  return newScript;
+  return newScript as AnswerScript;
 };
 
 export const getAnswerScriptsByExamination = async (examinationId: string): Promise<AnswerScript[]> => {
   const { data, error } = await supabase
     .from('answer_scripts')
-    .select('*')
+    .select('*, student:students(*)')
     .eq('examination_id', examinationId);
     
   if (error) {
@@ -244,5 +249,5 @@ export const getAnswerScriptsByExamination = async (examinationId: string): Prom
     throw error;
   }
   
-  return data || [];
+  return data as AnswerScript[] || [];
 };

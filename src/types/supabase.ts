@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   email: string;
@@ -49,10 +50,10 @@ export interface AnswerScript {
   id: string;
   examination_id: string;
   student_id: string;
-  script_url: string;
-  status: 'pending' | 'graded' | 'failed';
-  created_at: string;
-  identification_method: 'manual' | 'qr';
+  script_image_url: string;
+  processing_status: 'uploaded' | 'ocr_pending' | 'ocr_complete' | 'grading_pending' | 'grading_complete' | 'error';
+  upload_timestamp: string;
+  student?: Student;
 }
 
 export interface Answer {

@@ -97,13 +97,13 @@ export function UploadScriptForm({ examinationId, students, onSuccess }: UploadS
         examinationId
       );
       
-      // Create the answer script record in the database with upload_timestamp
+      // Create the answer script record in the database
       await createAnswerScript({
         student_id: data.student_id,
         examination_id: examinationId,
         script_image_url: imageUrl,
         processing_status: 'uploaded',
-        upload_timestamp: new Date().toISOString() // Add the missing upload_timestamp
+        upload_timestamp: new Date().toISOString()
       });
       
       form.reset();
