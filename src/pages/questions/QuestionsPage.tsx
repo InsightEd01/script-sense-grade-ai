@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -22,11 +21,9 @@ const QuestionsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
 
-  // Get the examinationId from the URL query parameters
   const searchParams = new URLSearchParams(location.search);
   const examinationId = searchParams.get('examinationId');
 
-  // Fetch examination details
   const {
     data: examination,
     isLoading: isLoadingExamination,
@@ -36,7 +33,6 @@ const QuestionsPage = () => {
     enabled: !!examinationId
   });
 
-  // Fetch questions for the examination
   const {
     data: questions,
     isLoading: isLoadingQuestions,
@@ -48,7 +44,6 @@ const QuestionsPage = () => {
     enabled: !!examinationId
   });
 
-  // If no examinationId is provided, redirect to examinations page
   useEffect(() => {
     if (!examinationId) {
       navigate('/examinations');
@@ -162,7 +157,6 @@ const QuestionsPage = () => {
                           size="icon" 
                           className="h-8 w-8"
                           onClick={() => {
-                            // Edit question functionality would go here
                             toast({
                               title: "Edit Feature",
                               description: "Question editing will be available soon."

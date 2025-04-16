@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Subject, Examination, Student, Teacher, AnswerScript } from '@/types/supabase';
 
@@ -156,16 +157,53 @@ export const getStudents = async (): Promise<Student[]> => {
   const { data, error } = await supabase
     .from('students')
     .select('*');
-  if (error) throw error;
+    
+  if (error) {
+    console.error('Error fetching students:', error);
+    throw error;
+  }
+  
+  return data || [];
+};
+
+export const createStudent = async (student: { teacher_id: string; name: string; unique_student_id: string }): Promise<Student> => {
+  const { data, error } = await supabase
+    .from('students')
+    .insert([student])
+    .select()
+    .single();
+    
+  if (error) {
+    console.error('Error creating student:', error);
+    throw error;
+  }
+  
   return data;
+};
+
+export const deleteStudent = async (id: string): Promise<void> => {
+  const { error } = await supabase
+    .from('students')
+    .delete()
+    .eq('id', id);
+    
+  if (error) {
+    console.error('Error deleting student:', error);
+    throw error;
+  }
 };
 
 export const getTeachers = async (): Promise<Teacher[]> => {
   const { data, error } = await supabase
     .from('teachers')
     .select('*');
-  if (error) throw error;
-  return data;
+    
+  if (error) {
+    console.error('Error fetching teachers:', error);
+    throw error;
+  }
+  
+  return data || [];
 };
 
 export const deleteTeacher = async (id: string): Promise<void> => {
@@ -173,16 +211,25 @@ export const deleteTeacher = async (id: string): Promise<void> => {
     .from('teachers')
     .delete()
     .eq('id', id);
-  if (error) throw error;
+    
+  if (error) {
+    console.error('Error deleting teacher:', error);
+    throw error;
+  }
 };
 
 export const createAnswerScript = async (data: Partial<AnswerScript>): Promise<AnswerScript> => {
   const { data: newScript, error } = await supabase
     .from('answer_scripts')
-    .insert(data)
+    .insert([data])
     .select()
     .single();
-  if (error) throw error;
+    
+  if (error) {
+    console.error('Error creating answer script:', error);
+    throw error;
+  }
+  
   return newScript;
 };
 
@@ -191,6 +238,11 @@ export const getAnswerScriptsByExamination = async (examinationId: string): Prom
     .from('answer_scripts')
     .select('*')
     .eq('examination_id', examinationId);
-  if (error) throw error;
-  return data;
+    
+  if (error) {
+    console.error('Error fetching answer scripts:', error);
+    throw error;
+  }
+  
+  return data || [];
 };

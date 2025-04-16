@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -88,7 +87,7 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            {/* Add new chat routes */}
+            {/* Chat routes */}
             <Route path="/chat" element={
               <ProtectedRoute>
                 <ChatPage />
@@ -100,7 +99,7 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            {/* Admin-only routes */}
+            {/* Admin routes */}
             <Route path="/teachers" element={
               <AdminRoute>
                 <TeachersPage />

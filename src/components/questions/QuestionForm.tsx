@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -59,7 +58,7 @@ export const QuestionForm = ({ examinationId, onSuccess }: QuestionFormProps) =>
     try {
       setIsGeneratingAnswer(true);
       setGenerationError('');
-      const answer = await generateModelAnswer(questionText);
+      const answer = await generateModelAnswer(questionText, examinationId);
       setGeneratedAnswer(answer);
       form.setValue('model_answer', answer);
       form.setValue('model_answer_source', 'ai_generated');
@@ -73,12 +72,13 @@ export const QuestionForm = ({ examinationId, onSuccess }: QuestionFormProps) =>
 
   const onSubmit = async (values: QuestionFormValues) => {
     try {
-      // Set the model_answer_source based on which tab is active
-      values.model_answer_source = answerTab === 'ai' ? 'ai_generated' : 'uploaded';
-      
       await createQuestion({
-        ...values,
-        examination_id: examinationId
+        examination_id: examinationId,
+        question_text: values.question_text,
+        model_answer: values.model_answer,
+        model_answer_source: values.model_answer_source,
+        marks: values.marks,
+        tolerance: values.tolerance
       });
       
       onSuccess();
