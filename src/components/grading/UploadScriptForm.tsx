@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -7,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createAnswerScript } from '@/services/dataService';
 import { uploadAnswerScript } from '@/lib/storage';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import { Student } from '@/types/supabase';
@@ -418,18 +417,5 @@ export function UploadScriptForm({ examinationId, students, onSuccess }: UploadS
         </div>
       </form>
     </Form>
-  );
-}
-
-interface FormDescriptionProps {
-  className?: string;
-  children: React.ReactNode;
-}
-
-function FormDescription({ className, children }: FormDescriptionProps) {
-  return (
-    <p className={className}>
-      {children}
-    </p>
   );
 }
