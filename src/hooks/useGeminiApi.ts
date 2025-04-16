@@ -3,7 +3,7 @@ import { useState, useCallback } from 'react';
 import { GradingResult } from '@/types/supabase';
 
 const GEMINI_API_KEY = "AIzaSyBBguG3m3mglvQzUXALiTccH73gpRFM1c8";
-const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
+const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
 interface GeminiResponse {
   candidates: {
