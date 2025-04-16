@@ -54,19 +54,6 @@ export async function scanQrCode(imageUrl: string): Promise<string | null> {
   });
 }
 
-// Add the missing scanBarcodeFromImage function that's being imported
-export async function scanBarcodeFromImage(imageUrl: string): Promise<string | null> {
-  // Try QR code first
-  const qrData = await scanQrCode(imageUrl);
-  if (qrData) {
-    return qrData;
-  }
-  
-  // Fall back to barcode
-  const barcodeData = await scanBarcode(imageUrl);
-  return barcodeData;
-}
-
 export async function identifyStudentFromImage(imageUrl: string): Promise<string | null> {
   // Try QR code first
   const qrData = await scanQrCode(imageUrl);
