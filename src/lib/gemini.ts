@@ -11,7 +11,7 @@ const generationConfig = {
   temperature: 0.5,
   topP: 0.1,
   topK: 1,
-  maxOutputTokens: 2048,
+  maxOutputTokens: 1024,
 };
 
 export async function generateModelAnswer(subject: string, question: string): Promise<string> {
