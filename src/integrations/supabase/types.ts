@@ -11,7 +11,10 @@ export type Database = {
     Tables: {
       answer_scripts: {
         Row: {
+          custom_instructions: string | null
+          enable_misconduct_detection: boolean | null
           examination_id: string
+          flags: string[] | null
           id: string
           processing_status: string
           script_image_url: string
@@ -19,7 +22,10 @@ export type Database = {
           upload_timestamp: string
         }
         Insert: {
+          custom_instructions?: string | null
+          enable_misconduct_detection?: boolean | null
           examination_id: string
+          flags?: string[] | null
           id?: string
           processing_status: string
           script_image_url: string
@@ -27,7 +33,10 @@ export type Database = {
           upload_timestamp?: string
         }
         Update: {
+          custom_instructions?: string | null
+          enable_misconduct_detection?: boolean | null
           examination_id?: string
+          flags?: string[] | null
           id?: string
           processing_status?: string
           script_image_url?: string
@@ -56,6 +65,7 @@ export type Database = {
           answer_script_id: string
           assigned_grade: number | null
           extracted_text: string | null
+          flags: string[] | null
           id: string
           is_overridden: boolean
           llm_explanation: string | null
@@ -67,6 +77,7 @@ export type Database = {
           answer_script_id: string
           assigned_grade?: number | null
           extracted_text?: string | null
+          flags?: string[] | null
           id?: string
           is_overridden?: boolean
           llm_explanation?: string | null
@@ -78,6 +89,7 @@ export type Database = {
           answer_script_id?: string
           assigned_grade?: number | null
           extracted_text?: string | null
+          flags?: string[] | null
           id?: string
           is_overridden?: boolean
           llm_explanation?: string | null
