@@ -10,7 +10,7 @@ const corsHeaders = {
 }
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') || "AIzaSyBBguG3m3mglvQzUXALiTccH73gpRFM1c8"
-const MODEL_NAME = "gemini-pro"
+const MODEL_NAME = "gemini-2.0-flash"
 
 serve(async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
