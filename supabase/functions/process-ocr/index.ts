@@ -45,7 +45,7 @@ serve(async (req: Request): Promise<Response> => {
     // Get the examination details for this script
     const { data: scriptData, error: scriptError } = await supabase
       .from('answer_scripts')
-      .select('*, examinations(*)')
+      .select('*, examination:examinations(*)')
       .eq('id', answerScriptId)
       .single()
     
@@ -68,10 +68,16 @@ serve(async (req: Request): Promise<Response> => {
     
     // Perform OCR on the image
     console.log(`Performing OCR on image: ${imageUrl}`)
-    const result = await performOCR(imageUrl)
-    console.log('OCR complete, extracted text:', result.text.substring(0, 100) + '...')
+    let result;
+    try {
+      result = await performOCR(imageUrl);
+      console.log('OCR complete, extracted text:', result.text.substring(0, 100) + '...')
+    } catch (ocrError) {
+      console.error('OCR error:', ocrError);
+      throw new Error(`OCR failed: ${ocrError.message}`);
+    }
     
-    // Store the full extracted text in a new field for review
+    // Store the full extracted text in the answer_scripts table for review
     await supabase
       .from('answer_scripts')
       .update({ 
@@ -156,6 +162,7 @@ async function performOCR(imageUrl: string): Promise<{ text: string; confidence:
     })
     
     console.log('Recognizing text from image')
+    // Handle both URLs and data URIs
     const result = await worker.recognize(imageUrl)
     console.log(`OCR completed with confidence: ${result.data.confidence}%`)
     

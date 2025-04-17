@@ -48,7 +48,7 @@ serve(async (req: Request): Promise<Response> => {
     // Get all data needed for grading
     const { data: scriptData, error: scriptError } = await supabase
       .from('answer_scripts')
-      .select('*, examinations(*)')
+      .select('*, examination:examinations(*)')
       .eq('id', answerScriptId)
       .single()
     
@@ -60,7 +60,7 @@ serve(async (req: Request): Promise<Response> => {
     // Get the answers for this script
     const { data: answers, error: answersError } = await supabase
       .from('answers')
-      .select('*, questions(*)')
+      .select('*, question:questions(*)')
       .eq('answer_script_id', answerScriptId)
     
     if (answersError) {
@@ -72,7 +72,7 @@ serve(async (req: Request): Promise<Response> => {
     const { data: subjectData, error: subjectError } = await supabase
       .from('subjects')
       .select('*')
-      .eq('id', scriptData.examinations.subject_id)
+      .eq('id', scriptData.examination.subject_id)
       .single()
     
     if (subjectError) {
@@ -105,7 +105,7 @@ serve(async (req: Request): Promise<Response> => {
         continue
       }
       
-      const question = answer.questions
+      const question = answer.question
       console.log(`Grading question: "${question.question_text.substring(0, 30)}..."`)
       
       // Grade the answer
@@ -251,17 +251,21 @@ async function gradeStudentAnswer(
   `;
 
   try {
+    console.log("Sending grading request to Gemini API");
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
     
     const response = result.response;
     const resultText = response.text().trim();
+    console.log("Received response from Gemini API");
     
     try {
       // Parse the JSON from the response text
       const cleanedJson = resultText.replace(/^```json\n|\n```$/g, '');
-      return JSON.parse(cleanedJson);
+      const parsedResult = JSON.parse(cleanedJson);
+      console.log("Successfully parsed Gemini response as JSON");
+      return parsedResult;
     } catch (parseError) {
       console.error("Failed to parse Gemini response as JSON:", resultText);
       // If parsing fails, create a fallback response

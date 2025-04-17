@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -90,6 +90,21 @@ const GradingPage = () => {
       }
     }
   }, [examinationId, examinations]);
+
+  // Load extracted text for scripts with status 'ocr_complete' or 'grading_complete'
+  useEffect(() => {
+    if (answerScripts) {
+      const scriptsToLoad = answerScripts.filter(script => 
+        ['ocr_complete', 'grading_pending', 'grading_complete'].includes(script.processing_status)
+      );
+      
+      scriptsToLoad.forEach(script => {
+        if (!extractedTexts[script.id]) {
+          fetchExtractedText(script.id);
+        }
+      });
+    }
+  }, [answerScripts]);
   
   const handleUploadSuccess = () => {
     setIsUploadOpen(false);
@@ -123,8 +138,8 @@ const GradingPage = () => {
       
       refetchScripts();
       toast({
-        title: "OCR Processing Started",
-        description: "The answer script is being processed. This may take a few moments.",
+        title: "OCR Processing Complete",
+        description: "The answer script has been processed successfully.",
       });
     } catch (error) {
       console.error('Error processing script:', error);
@@ -143,6 +158,19 @@ const GradingPage = () => {
     if (extractedTexts[scriptId]) return;
     
     try {
+      // First try to get the full extracted text from the answer_scripts table
+      const { data: scriptData, error: scriptError } = await supabase
+        .from('answer_scripts')
+        .select('full_extracted_text')
+        .eq('id', scriptId)
+        .single();
+        
+      if (!scriptError && scriptData?.full_extracted_text) {
+        setExtractedTexts(prev => ({ ...prev, [scriptId]: scriptData.full_extracted_text }));
+        return;
+      }
+      
+      // Fallback: get text from individual answers
       const { data, error } = await supabase
         .from('answers')
         .select('extracted_text')
@@ -424,29 +452,35 @@ const GradingPage = () => {
                               </div>
                             </div>
                             
+                            {/* Always show extracted text section for scripts that have been processed */}
                             {(script.processing_status === 'ocr_complete' || 
                               script.processing_status === 'grading_pending' || 
                               script.processing_status === 'grading_complete') && (
-                              <Collapsible className="mt-4" onOpenChange={() => fetchExtractedText(script.id)}>
-                                <CollapsibleTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="flex items-center">
-                                    <EyeIcon className="mr-1 h-4 w-4" />
-                                    View Extracted Text
-                                  </Button>
-                                </CollapsibleTrigger>
-                                <CollapsibleContent className="p-3 mt-2 bg-muted/30 rounded-md">
-                                  {extractedTexts[script.id] ? (
-                                    <pre className="whitespace-pre-wrap text-sm font-mono p-3 bg-muted/20 rounded overflow-auto max-h-60">
-                                      {extractedTexts[script.id]}
-                                    </pre>
-                                  ) : (
-                                    <div className="flex items-center justify-center p-4">
-                                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                      Loading extracted text...
-                                    </div>
-                                  )}
-                                </CollapsibleContent>
-                              </Collapsible>
+                              <div className="mt-4">
+                                <Collapsible className="border rounded-md p-2 bg-muted/20">
+                                  <CollapsibleTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="flex items-center w-full justify-between">
+                                      <span className="flex items-center">
+                                        <EyeIcon className="mr-1 h-4 w-4" />
+                                        View Extracted Text
+                                      </span>
+                                      <span className="text-xs text-muted-foreground">(Click to expand)</span>
+                                    </Button>
+                                  </CollapsibleTrigger>
+                                  <CollapsibleContent className="p-3 mt-2 bg-muted/30 rounded-md">
+                                    {extractedTexts[script.id] ? (
+                                      <pre className="whitespace-pre-wrap text-sm font-mono p-3 bg-muted/20 rounded overflow-auto max-h-60">
+                                        {extractedTexts[script.id]}
+                                      </pre>
+                                    ) : (
+                                      <div className="flex items-center justify-center p-4">
+                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                        Loading extracted text...
+                                      </div>
+                                    )}
+                                  </CollapsibleContent>
+                                </Collapsible>
+                              </div>
                             )}
                             
                             {script.flags && script.flags.length > 0 && (

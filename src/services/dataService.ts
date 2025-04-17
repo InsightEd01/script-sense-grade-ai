@@ -42,6 +42,21 @@ export async function getAnswerScriptsByExamination(examinationId: string): Prom
   return data as AnswerScript[];
 }
 
+export async function getAnswerScriptById(id: string): Promise<AnswerScript> {
+  const { data, error } = await supabase
+    .from('answer_scripts')
+    .select('*, student:students(*), examination:examinations(*)')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    console.error('Error fetching answer script:', error);
+    throw error;
+  }
+
+  return data as AnswerScript;
+}
+
 // Students
 export async function getStudents(): Promise<Student[]> {
   const { data, error } = await supabase
@@ -89,9 +104,21 @@ export async function deleteStudent(id: string): Promise<void> {
 }
 
 // Subjects
-export async function getSubjects(queryContext?: unknown): Promise<Subject[]> {
-  // Check if the context is from React Query
-  const teacherId = typeof queryContext === 'string' ? queryContext : undefined;
+export async function getSubjects(context?: unknown): Promise<Subject[]> {
+  // The context parameter can be the React Query context or a teacherId string
+  let teacherId: string | undefined;
+  
+  // Check if context is from React Query or a direct teacherId
+  if (typeof context === 'object' && context !== null) {
+    // It's likely a QueryFunctionContext
+    const queryKey = (context as any).queryKey;
+    if (Array.isArray(queryKey) && queryKey.length > 1) {
+      teacherId = queryKey[1] as string;
+    }
+  } else if (typeof context === 'string') {
+    // It's a direct teacherId
+    teacherId = context;
+  }
   
   let query = supabase
     .from('subjects')
@@ -273,4 +300,40 @@ export async function deleteTeacher(id: string): Promise<void> {
     console.error('Error deleting teacher:', error);
     throw error;
   }
+}
+
+// Answers
+export async function getAnswersByScriptId(scriptId: string) {
+  const { data, error } = await supabase
+    .from('answers')
+    .select('*, question:questions(*)')
+    .eq('answer_script_id', scriptId)
+    .order('question(created_at)', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching answers:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+export async function updateAnswer(answerId: string, updates: { 
+  manual_grade?: number; 
+  is_overridden?: boolean;
+  override_justification?: string;
+}) {
+  const { data, error } = await supabase
+    .from('answers')
+    .update(updates)
+    .eq('id', answerId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating answer:', error);
+    throw error;
+  }
+
+  return data;
 }
