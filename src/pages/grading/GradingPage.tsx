@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -32,11 +31,9 @@ const GradingPage = () => {
   const [isProcessing, setIsProcessing] = useState<{ [key: string]: boolean }>({});
   const [extractedTexts, setExtractedTexts] = useState<{ [key: string]: string }>({});
   
-  // Get the examinationId from the URL query parameters
   const searchParams = new URLSearchParams(location.search);
   const examinationId = searchParams.get('examinationId');
   
-  // Fetch all examinations (that the user has access to)
   const { 
     data: examinations,
     isLoading: isLoadingExaminations
@@ -59,7 +56,6 @@ const GradingPage = () => {
     enabled: !!user
   });
   
-  // Fetch answer scripts for the selected examination
   const {
     data: answerScripts,
     isLoading: isLoadingScripts,
@@ -71,7 +67,6 @@ const GradingPage = () => {
     enabled: !!user && !!examinationId
   });
   
-  // Fetch all students for using in the upload form
   const {
     data: students,
     isLoading: isLoadingStudents
@@ -81,7 +76,6 @@ const GradingPage = () => {
     enabled: !!user
   });
   
-  // Set the selected examination based on the URL parameter
   useEffect(() => {
     if (examinationId && examinations) {
       const examination = examinations.find(e => e.id === examinationId);
@@ -91,7 +85,6 @@ const GradingPage = () => {
     }
   }, [examinationId, examinations]);
 
-  // Load extracted text for scripts with status 'ocr_complete' or 'grading_complete'
   useEffect(() => {
     if (answerScripts) {
       const scriptsToLoad = answerScripts.filter(script => 
@@ -119,7 +112,6 @@ const GradingPage = () => {
     try {
       setIsProcessing(prev => ({ ...prev, [scriptId]: true }));
       
-      // Call the Supabase edge function to process the script
       const { data, error } = await supabase.functions.invoke('process-ocr', {
         body: {
           answerScriptId: scriptId,
@@ -131,7 +123,6 @@ const GradingPage = () => {
         throw error;
       }
       
-      // Store the extracted text to display it later
       if (data && data.extractedText) {
         setExtractedTexts(prev => ({ ...prev, [scriptId]: data.extractedText }));
       }
@@ -153,24 +144,10 @@ const GradingPage = () => {
     }
   };
   
-  // Fetch the extracted text for a script if we don't have it yet
   const fetchExtractedText = async (scriptId: string) => {
     if (extractedTexts[scriptId]) return;
     
     try {
-      // First try to get the full extracted text from the answer_scripts table
-      const { data: scriptData, error: scriptError } = await supabase
-        .from('answer_scripts')
-        .select('full_extracted_text')
-        .eq('id', scriptId)
-        .single();
-        
-      if (!scriptError && scriptData?.full_extracted_text) {
-        setExtractedTexts(prev => ({ ...prev, [scriptId]: scriptData.full_extracted_text }));
-        return;
-      }
-      
-      // Fallback: get text from individual answers
       const { data, error } = await supabase
         .from('answers')
         .select('extracted_text')
@@ -191,7 +168,6 @@ const GradingPage = () => {
     try {
       setIsProcessing(prev => ({ ...prev, [scriptId]: true }));
       
-      // Call the Supabase edge function to grade the script
       const { data, error } = await supabase.functions.invoke('grade-answers', {
         body: {
           answerScriptId: scriptId,
@@ -452,7 +428,6 @@ const GradingPage = () => {
                               </div>
                             </div>
                             
-                            {/* Always show extracted text section for scripts that have been processed */}
                             {(script.processing_status === 'ocr_complete' || 
                               script.processing_status === 'grading_pending' || 
                               script.processing_status === 'grading_complete') && (

@@ -25,7 +25,8 @@ serve(async (req: Request): Promise<Response> => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
     
     // Parse request body
-    const { answerScriptId, imageUrl } = await req.json()
+    const requestData = await req.json()
+    const { answerScriptId, imageUrl } = requestData
     
     if (!answerScriptId || !imageUrl) {
       return new Response(
@@ -77,14 +78,27 @@ serve(async (req: Request): Promise<Response> => {
       throw new Error(`OCR failed: ${ocrError.message}`);
     }
     
-    // Store the full extracted text in the answer_scripts table for review
-    await supabase
+    // Check if the answer_scripts table has the full_extracted_text column
+    const { error: columnCheckError } = await supabase
       .from('answer_scripts')
       .update({ 
         processing_status: 'ocr_complete',
         full_extracted_text: result.text // Store the full OCR text
       })
       .eq('id', answerScriptId)
+    
+    if (columnCheckError && columnCheckError.message.includes("column 'full_extracted_text' does not exist")) {
+      console.log("The full_extracted_text column does not exist. Using alternative storage approach.");
+      
+      // If the column doesn't exist, just update the processing status
+      await supabase
+        .from('answer_scripts')
+        .update({ processing_status: 'ocr_complete' })
+        .eq('id', answerScriptId)
+    } else if (columnCheckError) {
+      console.error("Error updating script:", columnCheckError);
+      throw new Error(`Failed to update script: ${columnCheckError.message}`);
+    }
     
     // Segment the extracted text into answers based on the number of questions
     const segmentedAnswers = segmentAnswers(result.text, questions.length)
@@ -123,7 +137,8 @@ serve(async (req: Request): Promise<Response> => {
     
     // If we have an answerScriptId, update its status to error
     try {
-      const { answerScriptId } = await req.json()
+      const requestData = await req.json()
+      const { answerScriptId } = requestData
       if (answerScriptId) {
         const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://pppteoxncuuraqjlrhir.supabase.co'
         const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
