@@ -39,7 +39,7 @@ export async function getAnswerScriptsByExamination(examinationId: string): Prom
     throw error;
   }
 
-  return data || [];
+  return data as AnswerScript[];
 }
 
 // Students
@@ -223,7 +223,7 @@ export async function getQuestionsByExamination(examinationId: string): Promise<
     throw error;
   }
 
-  return data || [];
+  return data as Question[];
 }
 
 export async function createQuestion(question: {
@@ -245,7 +245,7 @@ export async function createQuestion(question: {
     throw error;
   }
 
-  return data;
+  return data as Question;
 }
 
 // Teachers

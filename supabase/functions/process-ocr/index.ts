@@ -71,10 +71,13 @@ serve(async (req: Request): Promise<Response> => {
     const result = await performOCR(imageUrl)
     console.log('OCR complete, extracted text:', result.text.substring(0, 100) + '...')
     
-    // Update script status to OCR complete
+    // Store the full extracted text in a new field for review
     await supabase
       .from('answer_scripts')
-      .update({ processing_status: 'ocr_complete' })
+      .update({ 
+        processing_status: 'ocr_complete',
+        full_extracted_text: result.text // Store the full OCR text
+      })
       .eq('id', answerScriptId)
     
     // Segment the extracted text into answers based on the number of questions
@@ -136,7 +139,7 @@ serve(async (req: Request): Promise<Response> => {
   }
 })
 
-async function performOCR(imageUrl: string): Promise<{ text: string }> {
+async function performOCR(imageUrl: string): Promise<{ text: string; confidence: number }> {
   try {
     console.log('Creating Tesseract worker')
     
@@ -157,7 +160,10 @@ async function performOCR(imageUrl: string): Promise<{ text: string }> {
     console.log(`OCR completed with confidence: ${result.data.confidence}%`)
     
     await worker.terminate()
-    return { text: result.data.text }
+    return { 
+      text: result.data.text,
+      confidence: result.data.confidence
+    }
   } catch (error) {
     console.error('Tesseract OCR error:', error)
     throw new Error('Failed to extract text from image: ' + error.message)

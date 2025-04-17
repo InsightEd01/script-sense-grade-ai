@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/use-toast';
-import { Upload, Search, ChevronLeft, FileText, CheckCircle, XCircle, Clock, AlertCircle, Loader2, Flag } from 'lucide-react';
+import { Upload, Search, ChevronLeft, FileText, CheckCircle, XCircle, Clock, AlertCircle, Loader2, Flag, EyeIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Loading } from '@/components/ui/loading';
@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { format } from 'date-fns';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const GradingPage = () => {
   const { user } = useAuth();
@@ -29,6 +30,7 @@ const GradingPage = () => {
   const [selectedExamination, setSelectedExamination] = useState<Examination | null>(null);
   const [customInstructions, setCustomInstructions] = useState('');
   const [isProcessing, setIsProcessing] = useState<{ [key: string]: boolean }>({});
+  const [extractedTexts, setExtractedTexts] = useState<{ [key: string]: string }>({});
   
   // Get the examinationId from the URL query parameters
   const searchParams = new URLSearchParams(location.search);
@@ -114,6 +116,11 @@ const GradingPage = () => {
         throw error;
       }
       
+      // Store the extracted text to display it later
+      if (data && data.extractedText) {
+        setExtractedTexts(prev => ({ ...prev, [scriptId]: data.extractedText }));
+      }
+      
       refetchScripts();
       toast({
         title: "OCR Processing Started",
@@ -128,6 +135,27 @@ const GradingPage = () => {
       });
     } finally {
       setIsProcessing(prev => ({ ...prev, [scriptId]: false }));
+    }
+  };
+  
+  // Fetch the extracted text for a script if we don't have it yet
+  const fetchExtractedText = async (scriptId: string) => {
+    if (extractedTexts[scriptId]) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('answers')
+        .select('extracted_text')
+        .eq('answer_script_id', scriptId);
+        
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        const fullText = data.map(answer => answer.extracted_text).join('\n\n---\n\n');
+        setExtractedTexts(prev => ({ ...prev, [scriptId]: fullText }));
+      }
+    } catch (error) {
+      console.error('Error fetching extracted text:', error);
     }
   };
   
@@ -395,6 +423,31 @@ const GradingPage = () => {
                                 </Button>
                               </div>
                             </div>
+                            
+                            {(script.processing_status === 'ocr_complete' || 
+                              script.processing_status === 'grading_pending' || 
+                              script.processing_status === 'grading_complete') && (
+                              <Collapsible className="mt-4" onOpenChange={() => fetchExtractedText(script.id)}>
+                                <CollapsibleTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="flex items-center">
+                                    <EyeIcon className="mr-1 h-4 w-4" />
+                                    View Extracted Text
+                                  </Button>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="p-3 mt-2 bg-muted/30 rounded-md">
+                                  {extractedTexts[script.id] ? (
+                                    <pre className="whitespace-pre-wrap text-sm font-mono p-3 bg-muted/20 rounded overflow-auto max-h-60">
+                                      {extractedTexts[script.id]}
+                                    </pre>
+                                  ) : (
+                                    <div className="flex items-center justify-center p-4">
+                                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                      Loading extracted text...
+                                    </div>
+                                  )}
+                                </CollapsibleContent>
+                              </Collapsible>
+                            )}
                             
                             {script.flags && script.flags.length > 0 && (
                               <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">

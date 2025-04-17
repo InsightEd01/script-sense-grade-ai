@@ -9,7 +9,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') || "AIzaSyBBguG3m3mglvQzUXALiTccH73gpRFM1c8"
+const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') || "AIzaSyBBe5atwksC1l0hXhCudRs6oYIcu7ZdxhA"
 const MODEL_NAME = "gemini-2.0-flash"
 
 serve(async (req: Request): Promise<Response> => {
@@ -97,6 +97,8 @@ serve(async (req: Request): Promise<Response> => {
     const gradingResults = []
     console.log(`Grading ${answers.length} answers`)
     
+    const flags = []
+    
     for (const answer of answers) {
       if (!answer.extracted_text) {
         console.log(`Skipping answer ${answer.id} - no extracted text`)
@@ -116,13 +118,17 @@ serve(async (req: Request): Promise<Response> => {
           question.tolerance,
           question.model_answer,
           answer.extracted_text,
-          customInstructions
+          customInstructions,
+          scriptData.enable_misconduct_detection
         )
         
         console.log(`Grading result: ${result.score}/${question.marks}, explanation: "${result.explanation.substring(0, 50)}..."`)
         
         // Check if there are any flags in the result
-        const flags = result.flags && result.flags.length > 0 ? result.flags : [];
+        const answerFlags = result.flags && result.flags.length > 0 ? result.flags : [];
+        if (answerFlags.length > 0) {
+          flags.push(...answerFlags);
+        }
         
         // Update the answer with the grade
         const { error: updateError } = await supabase
@@ -130,7 +136,7 @@ serve(async (req: Request): Promise<Response> => {
           .update({
             assigned_grade: result.score,
             llm_explanation: result.explanation,
-            flags: flags
+            flags: answerFlags
           })
           .eq('id', answer.id)
         
@@ -143,7 +149,7 @@ serve(async (req: Request): Promise<Response> => {
           answerId: answer.id,
           score: result.score,
           explanation: result.explanation,
-          flags: flags
+          flags: answerFlags
         })
       } catch (gradeError) {
         console.error(`Error grading answer ${answer.id}:`, gradeError)
@@ -151,10 +157,13 @@ serve(async (req: Request): Promise<Response> => {
       }
     }
     
-    // Update script status to grading complete
+    // Update script status to grading complete and store unique flags
     await supabase
       .from('answer_scripts')
-      .update({ processing_status: 'grading_complete' })
+      .update({ 
+        processing_status: 'grading_complete',
+        flags: Array.from(new Set(flags))
+      })
       .eq('id', answerScriptId)
     
     return new Response(
@@ -200,12 +209,20 @@ async function gradeStudentAnswer(
   tolerance: number, 
   modelAnswer: string, 
   studentAnswer: string,
-  customInstructions?: string
+  customInstructions?: string,
+  enableMisconductDetection = true
 ): Promise<{ score: number; explanation: string; flags?: string[] }> {
   let customGradingInfo = '';
   if (customInstructions) {
     customGradingInfo = `Additional Grading Instructions: ${customInstructions}
     `;
+  }
+  
+  let misconductDetection = '';
+  if (enableMisconductDetection) {
+    misconductDetection = `6. Look for potential academic misconduct like cheating or plagiarism signs, and add any flags to the flags array.`;
+  } else {
+    misconductDetection = `6. Do not look for any academic misconduct, leave the flags array empty.`;
   }
 
   const prompt = `
@@ -223,7 +240,7 @@ async function gradeStudentAnswer(
     3. Determine the degree of semantic alignment between the student's answer and the model answer.
     4. Assign a score from 0 to ${maxMarks} based on this alignment, considering the "Required Semantic Similarity Tolerance". A score of ${maxMarks} should be given if the alignment meets or exceeds the tolerance threshold. Award partial credit proportionately if key concepts are partially present or alignment is close but below the threshold.
     5. Provide a brief, one-sentence explanation for the assigned score, mentioning key alignments or deviations.
-    6. Look for potential academic misconduct like cheating or plagiarism signs, and add any flags to an array.
+    ${misconductDetection}
 
     Output Format (JSON):
     {

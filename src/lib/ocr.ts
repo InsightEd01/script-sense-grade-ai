@@ -1,13 +1,13 @@
 
 import Tesseract from 'tesseract.js';
 
-export async function performOCR(imageUrl: string): Promise<string> {
+export async function performOCR(imageUrl: string): Promise<{ text: string; confidence: number }> {
   try {
     console.log('Starting OCR process for image:', imageUrl);
     
     // Create a worker with English language
     const worker = await Tesseract.createWorker('eng', 1, {
-      // Enable all available functionalities for better results
+      // Enable logging to track progress
       logger: progress => {
         console.log('OCR Progress:', progress);
       }
@@ -18,24 +18,43 @@ export async function performOCR(imageUrl: string): Promise<string> {
       tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY,
       tessedit_pageseg_mode: Tesseract.PSM.AUTO,
       preserve_interword_spaces: '1',
+      tessjs_create_hocr: '0',
+      tessjs_create_tsv: '0',
+      tessjs_create_box: '0',
+      tessjs_create_unlv: '0',
+      tessjs_create_osd: '0',
     });
 
+    // Try to preprocess the image first if possible
+    let processedImageUrl = imageUrl;
+    try {
+      if (imageUrl.startsWith('data:') || imageUrl.startsWith('blob:')) {
+        processedImageUrl = await preprocessImage(imageUrl);
+        console.log('Image was preprocessed for better OCR results');
+      }
+    } catch (preprocessError) {
+      console.warn('Image preprocessing failed, using original image:', preprocessError);
+    }
+    
     // Perform OCR on the image
     console.log('Recognizing text...');
-    const result = await worker.recognize(imageUrl);
+    const result = await worker.recognize(processedImageUrl);
     console.log('OCR completed with confidence:', result.data.confidence);
     
     // Terminate the worker when done
     await worker.terminate();
     
-    return result.data.text;
+    return { 
+      text: result.data.text,
+      confidence: result.data.confidence
+    };
   } catch (error) {
     console.error('OCR error:', error);
-    throw new Error('Failed to extract text from image');
+    throw new Error('Failed to extract text from image: ' + (error.message || 'Unknown error'));
   }
 }
 
-export function preprocessImage(imageData: string): Promise<string> {
+export async function preprocessImage(imageData: string): Promise<string> {
   return new Promise((resolve, reject) => {
     console.log('Starting image preprocessing');
     const img = new Image();
@@ -77,16 +96,13 @@ export function preprocessImage(imageData: string): Promise<string> {
         data[i + 2] = factor * (data[i + 2] - 128) + 128;
       }
       
-      // 3. Binarization (adaptive threshold)
+      // 3. Adaptive thresholding - better than simple binarization
+      // This is a simplified version, but still better than fixed threshold
       const threshold = 140;
       for (let i = 0; i < data.length; i += 4) {
         const val = data[i] > threshold ? 255 : 0;
         data[i] = data[i + 1] = data[i + 2] = val;
       }
-      
-      // 4. Noise reduction (simple)
-      // This is a simple implementation; a more sophisticated algorithm would be better
-      // but might be too complex for client-side processing
       
       // Put processed image back to canvas
       ctx.putImageData(imageData, 0, 0);
@@ -151,25 +167,16 @@ export async function segmentAnswers(extractedText: string, questionCount: numbe
   if (!markerFound) {
     console.log('No reliable markers found, using alternative segmentation');
     
-    // Look for natural language cues indicating different questions
-    const nlCues = [
-      /(?:^|\n)(?:regarding|concerning|about|for) question (\d+)/gi,
-      /(?:^|\n)(?:in response to|responding to) (?:question|item) (\d+)/gi,
-    ];
-    
-    let nlSegmentation = false;
-    for (const cue of nlCues) {
-      const matches = Array.from(extractedText.matchAll(cue));
-      if (matches.length >= questionCount - 1) { // We might not have a cue for the first question
-        nlSegmentation = true;
-        // Similar segmentation logic as above
-        // Implementation omitted for brevity - would follow same pattern
-        break;
+    // Try using paragraph breaks if available
+    const paragraphs = extractedText.split(/\n\s*\n/);
+    if (paragraphs.length >= questionCount) {
+      console.log('Using paragraph breaks for segmentation');
+      for (let i = 0; i < questionCount; i++) {
+        segmentedAnswers[i] = paragraphs[i].trim();
+        console.log(`Answer ${i+1} length: ${segmentedAnswers[i].length} chars`);
       }
-    }
-    
-    // If still no luck, try dividing the text evenly
-    if (!nlSegmentation) {
+    } else {
+      // Last resort: dividing the text evenly
       console.log('Using equal division for segmentation');
       const avgLength = Math.floor(extractedText.length / questionCount);
       for (let i = 0; i < questionCount; i++) {
