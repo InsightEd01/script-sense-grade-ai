@@ -1,7 +1,7 @@
-
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { FileText, CheckCircle, FileImage, BarChart, Users, ArrowRight, Star, School, Code } from 'lucide-react';
+import { HeroCarousel } from '@/components/home/HeroCarousel';
 
 const WelcomePage = () => {
   return (
@@ -55,11 +55,7 @@ const WelcomePage = () => {
               </div>
             </div>
             <div className="hidden lg:block">
-              <img
-                src="/lovable-uploads/637d75b4-c2f1-4453-a971-c4a3759a2080.png"
-                alt="Education Innovation"
-                className="rounded-lg shadow-2xl"
-              />
+              <HeroCarousel />
             </div>
           </div>
 
