@@ -1,4 +1,4 @@
-import Tesseract from 'tesseract.js';
+import { performEnhancedOCR, preprocessImage } from '@/services/ocrService';
 
 async function retryOperation<T>(
   operation: () => Promise<T>,
@@ -27,54 +27,7 @@ export async function performOCR(imageUrl: string): Promise<{ text: string; conf
       throw new Error('Invalid image URL provided for OCR');
     }
 
-    // Try different preprocessing combinations
-    const preprocessingOptions = [
-      { contrast: 1.5, threshold: 140 },
-      { contrast: 2.0, threshold: 160 },
-      { contrast: 1.0, threshold: 120 }
-    ];
-
-    let bestResult = null;
-    let highestConfidence = -1;
-
-    for (const options of preprocessingOptions) {
-      try {
-        const processedImageUrl = await preprocessImage(imageUrl, options);
-        const result = await retryOperation(async () => {
-          const worker = await Tesseract.createWorker('eng');
-          await worker.setParameters({
-            tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY,
-            tessedit_pageseg_mode: Tesseract.PSM.AUTO,
-            preserve_interword_spaces: '1',
-          });
-
-          const recognition = await worker.recognize(processedImageUrl);
-          await worker.terminate();
-          return recognition;
-        });
-
-        if (result.data.confidence > highestConfidence) {
-          bestResult = result;
-          highestConfidence = result.data.confidence;
-        }
-
-        if (highestConfidence > 50) { // Found good enough result
-          break;
-        }
-      } catch (error) {
-        console.warn('Processing attempt failed:', error);
-        continue;
-      }
-    }
-
-    if (!bestResult || bestResult.data.confidence < 30) {
-      throw new Error('Failed to achieve acceptable OCR confidence');
-    }
-
-    return {
-      text: bestResult.data.text,
-      confidence: bestResult.data.confidence
-    };
+    return await performEnhancedOCR(imageUrl);
   } catch (error) {
     console.error('OCR processing failed:', error);
     throw error;
