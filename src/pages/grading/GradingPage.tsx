@@ -5,12 +5,47 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
-import { Upload, Search, ChevronLeft, FileText, CheckCircle, XCircle, Clock, AlertCircle, Loader2, Flag, EyeIcon, Trash2 } from 'lucide-react';
+import { 
+  Upload, 
+  Search, 
+  ChevronLeft, 
+  FileText, 
+  CheckCircle, 
+  XCircle, 
+  Clock, 
+  AlertCircle, 
+  Loader2, 
+  Flag, 
+  EyeIcon, 
+  Trash2 
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Loading } from '@/components/ui/loading';
 import { useAuth } from '@/contexts/AuthContext';
-import { getExaminationsBySubject, getAnswerScriptsByExamination, getStudents, deleteAnswerScript } from '@/services/dataService';
+import { 
+  getExaminationsBySubject, 
+  getAnswerScriptsByExamination, 
+  getStudents, 
+  deleteAnswerScript 
+} from '@/services/dataService';
+import { supabase } from '@/integrations/supabase/client';
+import { Examination, AnswerScript } from '@/types/supabase';
+import { format } from 'date-fns';
+import { UploadScriptForm } from '@/components/grading/UploadScriptForm';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger
+} from "@/components/ui/collapsible";
 import {
   AlertDialog,
   AlertDialogAction,
