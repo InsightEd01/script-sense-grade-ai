@@ -152,10 +152,15 @@ const GradingPage = () => {
     try {
       setIsProcessing(prev => ({ ...prev, [scriptId]: true }));
       
+      const script = answerScripts?.find(s => s.id === scriptId);
+      if (!script) {
+        throw new Error('Script not found');
+      }
+      
       const { data, error } = await supabase.functions.invoke('process-ocr', {
         body: {
           answerScriptId: scriptId,
-          imageUrl: answerScripts?.find(s => s.id === scriptId)?.script_image_url
+          imageUrl: script.script_image_url
         }
       });
       
@@ -169,8 +174,8 @@ const GradingPage = () => {
       
       refetchScripts();
       toast({
-        title: "OCR Processing Complete",
-        description: "The answer script has been processed successfully.",
+        title: "Processing Complete",
+        description: data?.message || "The answer script has been processed successfully.",
       });
     } catch (error) {
       console.error('Error processing script:', error);
