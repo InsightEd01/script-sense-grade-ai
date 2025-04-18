@@ -1,4 +1,4 @@
-import { performEnhancedOCR, preprocessImage } from '@/services/ocrService';
+import { performEnhancedOCR } from '@/services/ocrService';
 
 async function retryOperation<T>(
   operation: () => Promise<T>,
@@ -45,7 +45,8 @@ function validateImage(imageUrl: string): boolean {
   return true;
 }
 
-export async function preprocessImage(imageData: string, options = { contrast: 1.5, threshold: 140 }): Promise<string> {
+// Renamed from preprocessImage to handleImagePreprocessing to avoid conflict with imported function
+export async function handleImagePreprocessing(imageData: string, options = { contrast: 1.5, threshold: 140 }): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     
