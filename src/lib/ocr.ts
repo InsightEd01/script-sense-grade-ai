@@ -1,122 +1,146 @@
-
 import Tesseract from 'tesseract.js';
+
+async function retryOperation<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  delay: number = 1000
+): Promise<T> {
+  let lastError;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      console.warn(`Attempt ${attempt} failed, retrying in ${delay}ms...`, error);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      delay *= 2; // Exponential backoff
+    }
+  }
+  throw lastError;
+}
 
 export async function performOCR(imageUrl: string): Promise<{ text: string; confidence: number }> {
   try {
     console.log('Starting OCR process for image:', imageUrl);
-    
-    // Create a worker with English language
-    const worker = await Tesseract.createWorker('eng', 1, {
-      // Enable logging to track progress
-      logger: progress => {
-        console.log('OCR Progress:', progress);
-      }
-    });
 
-    // Set parameters for better handwriting recognition
-    await worker.setParameters({
-      tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY,
-      tessedit_pageseg_mode: Tesseract.PSM.AUTO,
-      preserve_interword_spaces: '1',
-      tessjs_create_hocr: '0',
-      tessjs_create_tsv: '0',
-      tessjs_create_box: '0',
-      tessjs_create_unlv: '0',
-      tessjs_create_osd: '0',
-    });
-
-    // Try to preprocess the image first if possible
-    let processedImageUrl = imageUrl;
-    try {
-      if (imageUrl.startsWith('data:') || imageUrl.startsWith('blob:')) {
-        processedImageUrl = await preprocessImage(imageUrl);
-        console.log('Image was preprocessed for better OCR results');
-      }
-    } catch (preprocessError) {
-      console.warn('Image preprocessing failed, using original image:', preprocessError);
+    if (!validateImage(imageUrl)) {
+      throw new Error('Invalid image URL provided for OCR');
     }
-    
-    // Perform OCR on the image
-    console.log('Recognizing text...');
-    const result = await worker.recognize(processedImageUrl);
-    console.log('OCR completed with confidence:', result.data.confidence);
-    
-    // Terminate the worker when done
-    await worker.terminate();
-    
-    return { 
-      text: result.data.text,
-      confidence: result.data.confidence
+
+    // Try different preprocessing combinations
+    const preprocessingOptions = [
+      { contrast: 1.5, threshold: 140 },
+      { contrast: 2.0, threshold: 160 },
+      { contrast: 1.0, threshold: 120 }
+    ];
+
+    let bestResult = null;
+    let highestConfidence = -1;
+
+    for (const options of preprocessingOptions) {
+      try {
+        const processedImageUrl = await preprocessImage(imageUrl, options);
+        const result = await retryOperation(async () => {
+          const worker = await Tesseract.createWorker('eng');
+          await worker.setParameters({
+            tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY,
+            tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+            preserve_interword_spaces: '1',
+          });
+
+          const recognition = await worker.recognize(processedImageUrl);
+          await worker.terminate();
+          return recognition;
+        });
+
+        if (result.data.confidence > highestConfidence) {
+          bestResult = result;
+          highestConfidence = result.data.confidence;
+        }
+
+        if (highestConfidence > 50) { // Found good enough result
+          break;
+        }
+      } catch (error) {
+        console.warn('Processing attempt failed:', error);
+        continue;
+      }
+    }
+
+    if (!bestResult || bestResult.data.confidence < 30) {
+      throw new Error('Failed to achieve acceptable OCR confidence');
+    }
+
+    return {
+      text: bestResult.data.text,
+      confidence: bestResult.data.confidence
     };
   } catch (error) {
-    console.error('OCR error:', error);
-    throw new Error('Failed to extract text from image: ' + (error.message || 'Unknown error'));
+    console.error('OCR processing failed:', error);
+    throw error;
   }
 }
 
-export async function preprocessImage(imageData: string): Promise<string> {
+function validateImage(imageUrl: string): boolean {
+  if (!imageUrl) return false;
+  if (imageUrl.length < 10) return false;
+  if (!(imageUrl.startsWith('data:image/') || 
+        imageUrl.startsWith('blob:') || 
+        imageUrl.startsWith('http'))) {
+    return false;
+  }
+  return true;
+}
+
+export async function preprocessImage(imageData: string, options = { contrast: 1.5, threshold: 140 }): Promise<string> {
   return new Promise((resolve, reject) => {
-    console.log('Starting image preprocessing');
     const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      
-      if (!ctx) {
-        reject(new Error('Failed to get canvas context'));
-        return;
-      }
-      
-      canvas.width = img.width;
-      canvas.height = img.height;
-      
-      // Draw original image
-      ctx.drawImage(img, 0, 0);
-      
-      // Get image data for processing
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-      
-      console.log('Applying image preprocessing filters');
-      
-      // Enhanced preprocessing for better OCR results
-      // 1. Grayscale conversion
-      for (let i = 0; i < data.length; i += 4) {
-        const avg = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]; // Better grayscale formula
-        data[i] = data[i + 1] = data[i + 2] = avg;
-      }
-      
-      // 2. Contrast enhancement
-      const contrast = 1.5; // Increase contrast
-      const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-      
-      for (let i = 0; i < data.length; i += 4) {
-        data[i] = factor * (data[i] - 128) + 128;
-        data[i + 1] = factor * (data[i + 1] - 128) + 128;
-        data[i + 2] = factor * (data[i + 2] - 128) + 128;
-      }
-      
-      // 3. Adaptive thresholding - better than simple binarization
-      // This is a simplified version, but still better than fixed threshold
-      const threshold = 140;
-      for (let i = 0; i < data.length; i += 4) {
-        const val = data[i] > threshold ? 255 : 0;
-        data[i] = data[i + 1] = data[i + 2] = val;
-      }
-      
-      // Put processed image back to canvas
-      ctx.putImageData(imageData, 0, 0);
-      
-      // Convert to data URL
-      console.log('Preprocessing complete');
-      resolve(canvas.toDataURL('image/png'));
-    };
     
-    img.onerror = () => {
-      console.error('Failed to load image for preprocessing');
-      reject(new Error('Failed to load image for preprocessing'));
+    const processImage = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          throw new Error('Failed to get canvas context');
+        }
+        
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        // Apply sharpening
+        const sharpenKernel = [
+          0, -1, 0,
+          -1, 5, -1,
+          0, -1, 0
+        ];
+        
+        // Apply grayscale and contrast
+        for (let i = 0; i < data.length; i += 4) {
+          const avg = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+          const adjusted = options.contrast * (avg - 128) + 128;
+          data[i] = data[i + 1] = data[i + 2] = adjusted;
+        }
+
+        // Apply threshold
+        for (let i = 0; i < data.length; i += 4) {
+          const val = data[i] > options.threshold ? 255 : 0;
+          data[i] = data[i + 1] = data[i + 2] = val;
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch (error) {
+        reject(error);
+      }
     };
-    
+
+    img.onload = processImage;
+    img.onerror = () => reject(new Error('Failed to load image'));
     img.src = imageData;
   });
 }
