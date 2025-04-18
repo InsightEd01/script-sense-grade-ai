@@ -1,24 +1,27 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/use-toast';
-import { Upload, Search, ChevronLeft, FileText, CheckCircle, XCircle, Clock, AlertCircle, Loader2, Flag, EyeIcon } from 'lucide-react';
+import { Upload, Search, ChevronLeft, FileText, CheckCircle, XCircle, Clock, AlertCircle, Loader2, Flag, EyeIcon, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { Loading } from '@/components/ui/loading';
 import { useAuth } from '@/contexts/AuthContext';
-import { getExaminationsBySubject, getAnswerScriptsByExamination, getStudents } from '@/services/dataService';
-import { AnswerScript, Examination, Student } from '@/types/supabase';
-import { UploadScriptForm } from '@/components/grading/UploadScriptForm';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { format } from 'date-fns';
-import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/integrations/supabase/client';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { getExaminationsBySubject, getAnswerScriptsByExamination, getStudents, deleteAnswerScript } from '@/services/dataService';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const GradingPage = () => {
   const { user } = useAuth();
@@ -30,10 +33,12 @@ const GradingPage = () => {
   const [customInstructions, setCustomInstructions] = useState('');
   const [isProcessing, setIsProcessing] = useState<{ [key: string]: boolean }>({});
   const [extractedTexts, setExtractedTexts] = useState<{ [key: string]: string }>({});
-  
+  const [cancellingScripts, setCancellingScripts] = useState<{ [key: string]: boolean }>({});
+  const queryClient = useQueryClient();
+
   const searchParams = new URLSearchParams(location.search);
   const examinationId = searchParams.get('examinationId');
-  
+
   const { 
     data: examinations,
     isLoading: isLoadingExaminations
@@ -55,7 +60,7 @@ const GradingPage = () => {
     },
     enabled: !!user
   });
-  
+
   const {
     data: answerScripts,
     isLoading: isLoadingScripts,
@@ -66,7 +71,7 @@ const GradingPage = () => {
     queryFn: () => examinationId ? getAnswerScriptsByExamination(examinationId) : Promise.resolve([]),
     enabled: !!user && !!examinationId
   });
-  
+
   const {
     data: students,
     isLoading: isLoadingStudents
@@ -75,7 +80,7 @@ const GradingPage = () => {
     queryFn: getStudents,
     enabled: !!user
   });
-  
+
   useEffect(() => {
     if (examinationId && examinations) {
       const examination = examinations.find(e => e.id === examinationId);
@@ -98,7 +103,7 @@ const GradingPage = () => {
       });
     }
   }, [answerScripts]);
-  
+
   const handleUploadSuccess = () => {
     setIsUploadOpen(false);
     refetchScripts();
@@ -107,7 +112,7 @@ const GradingPage = () => {
       description: "The answer script has been uploaded successfully",
     });
   };
-  
+
   const handleProcessScript = async (scriptId: string) => {
     try {
       setIsProcessing(prev => ({ ...prev, [scriptId]: true }));
@@ -143,7 +148,7 @@ const GradingPage = () => {
       setIsProcessing(prev => ({ ...prev, [scriptId]: false }));
     }
   };
-  
+
   const fetchExtractedText = async (scriptId: string) => {
     if (extractedTexts[scriptId]) return;
     
@@ -163,7 +168,7 @@ const GradingPage = () => {
       console.error('Error fetching extracted text:', error);
     }
   };
-  
+
   const handleGradeScript = async (scriptId: string) => {
     try {
       setIsProcessing(prev => ({ ...prev, [scriptId]: true }));
@@ -195,7 +200,53 @@ const GradingPage = () => {
       setIsProcessing(prev => ({ ...prev, [scriptId]: false }));
     }
   };
-  
+
+  const handleCancelProcessing = async (scriptId: string) => {
+    try {
+      setCancellingScripts(prev => ({ ...prev, [scriptId]: true }));
+      
+      const { error } = await supabase
+        .from('answer_scripts')
+        .update({ processing_status: 'error' })
+        .eq('id', scriptId);
+
+      if (error) throw error;
+
+      refetchScripts();
+      toast({
+        title: "Processing Cancelled",
+        description: "The script processing has been cancelled.",
+      });
+    } catch (error) {
+      console.error('Error cancelling processing:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to cancel processing. Please try again.",
+      });
+    } finally {
+      setCancellingScripts(prev => ({ ...prev, [scriptId]: false }));
+    }
+  };
+
+  const handleDeleteScript = async (scriptId: string) => {
+    try {
+      await deleteAnswerScript(scriptId);
+      refetchScripts();
+      toast({
+        title: "Script Deleted",
+        description: "The answer script has been deleted successfully.",
+      });
+    } catch (error) {
+      console.error('Error deleting script:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete the script. Please try again.",
+      });
+    }
+  };
+
   const getStatusBadge = (status: string, flags?: string[]) => {
     const hasMisconductFlags = flags && flags.length > 0;
     
@@ -223,12 +274,12 @@ const GradingPage = () => {
         return <Badge variant="outline"><AlertCircle className="mr-1 h-3 w-3" /> Unknown</Badge>;
     }
   };
-  
+
   const filteredScripts = answerScripts?.filter(script => 
     script.student?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     script.student?.unique_student_id.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -394,30 +445,46 @@ const GradingPage = () => {
                                     Process with OCR
                                   </Button>
                                 )}
-                                {script.processing_status === 'ocr_complete' && (
+                                {script.processing_status === 'ocr_pending' && (
                                   <Button 
+                                    variant="destructive"
                                     size="sm"
-                                    onClick={() => handleGradeScript(script.id)}
-                                    disabled={isProcessing[script.id]}
+                                    onClick={() => handleCancelProcessing(script.id)}
+                                    disabled={cancellingScripts[script.id]}
                                   >
-                                    {isProcessing[script.id] ? (
+                                    {cancellingScripts[script.id] ? (
                                       <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                                     ) : (
-                                      <CheckCircle className="mr-1 h-4 w-4" />
+                                      <XCircle className="mr-1 h-4 w-4" />
                                     )}
-                                    Grade Script
+                                    Cancel Processing
                                   </Button>
                                 )}
-                                {script.processing_status === 'grading_complete' && (
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    onClick={() => navigate(`/grading/${script.id}`)}
-                                  >
-                                    <FileText className="mr-1 h-4 w-4" />
-                                    View Results
-                                  </Button>
-                                )}
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" size="sm">
+                                      <Trash2 className="mr-1 h-4 w-4" />
+                                      Delete Script
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        This action cannot be undone. The answer script and all associated data will be permanently deleted.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDeleteScript(script.id)}
+                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      >
+                                        Delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
                                 <Button 
                                   variant="outline" 
                                   size="sm" 

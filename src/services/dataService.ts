@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { AnswerScript, Examination, Question, Student, Subject, Teacher } from '@/types/supabase';
 
@@ -55,6 +54,18 @@ export async function getAnswerScriptById(id: string): Promise<AnswerScript> {
   }
 
   return data as AnswerScript;
+}
+
+export async function deleteAnswerScript(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('answer_scripts')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting answer script:', error);
+    throw error;
+  }
 }
 
 // Students
