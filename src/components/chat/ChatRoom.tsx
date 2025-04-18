@@ -1,6 +1,6 @@
 
 import { useEffect, useState, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Paperclip, Send, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,35 +13,92 @@ export const ChatRoom = () => {
   const { roomId } = useParams();
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
+  // Check if roomId is "new" and handle new room creation
   useEffect(() => {
-    if (!roomId || !user) return;
+    if (roomId === 'new' && user) {
+      createNewChatRoom();
+    }
+  }, [roomId, user]);
+
+  const createNewChatRoom = async () => {
+    try {
+      setIsLoading(true);
+      const roomName = `Chat Room ${new Date().toLocaleDateString()}`;
+      
+      const { data: roomData, error: roomError } = await supabase
+        .from('chat_rooms')
+        .insert({
+          name: roomName,
+          created_by: user?.id
+        })
+        .select()
+        .single();
+      
+      if (roomError) throw roomError;
+      
+      // Add the creator as a participant
+      const { error: participantError } = await supabase
+        .from('chat_participants')
+        .insert({
+          room_id: roomData.id,
+          user_id: user?.id
+        });
+      
+      if (participantError) throw participantError;
+      
+      // Navigate to the new room
+      navigate(`/chat/${roomData.id}`, { replace: true });
+      
+      toast({
+        title: "Success",
+        description: "New chat room created",
+      });
+    } catch (error) {
+      console.error('Error creating chat room:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create chat room. Please try again.",
+        variant: "destructive"
+      });
+      navigate('/chat');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!roomId || roomId === 'new' || !user) return;
 
     const fetchMessages = async () => {
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .select('*')
-        .eq('room_id', roomId)
-        .order('sent_at');
+      try {
+        const { data, error } = await supabase
+          .from('chat_messages')
+          .select('*')
+          .eq('room_id', roomId)
+          .order('sent_at');
 
-      if (error) {
+        if (error) throw error;
+
+        // Cast data to ChatMessage[] to ensure type compatibility
+        setMessages(data as ChatMessage[]);
+        scrollToBottom();
+      } catch (error) {
+        console.error('Error fetching messages:', error);
         toast({
           title: "Error",
           description: "Failed to load messages",
           variant: "destructive"
         });
-        return;
       }
-
-      // Cast data to ChatMessage[] to ensure type compatibility
-      setMessages(data as ChatMessage[]);
-      scrollToBottom();
     };
 
     fetchMessages();
@@ -69,33 +126,40 @@ export const ChatRoom = () => {
   };
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !user || !roomId) return;
+    if (!newMessage.trim() || !user || !roomId || roomId === 'new') return;
 
-    const { error } = await supabase
-      .from('chat_messages')
-      .insert({
-        room_id: roomId,
-        sender_id: user.id,
-        message_text: newMessage
-      });
+    try {
+      setIsLoading(true);
+      
+      const { error } = await supabase
+        .from('chat_messages')
+        .insert({
+          room_id: roomId,
+          sender_id: user.id,
+          message_text: newMessage
+        });
 
-    if (error) {
+      if (error) throw error;
+
+      setNewMessage('');
+    } catch (error) {
+      console.error('Error sending message:', error);
       toast({
         title: "Error",
         description: "Failed to send message",
         variant: "destructive"
       });
-      return;
+    } finally {
+      setIsLoading(false);
     }
-
-    setNewMessage('');
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !user || !roomId) return;
+    if (!file || !user || !roomId || roomId === 'new') return;
 
     try {
+      setIsLoading(true);
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `${roomId}/${fileName}`;
@@ -116,7 +180,7 @@ export const ChatRoom = () => {
         attachmentType = 'image';
       }
 
-      await supabase
+      const { error } = await supabase
         .from('chat_messages')
         .insert({
           room_id: roomId,
@@ -124,13 +188,18 @@ export const ChatRoom = () => {
           attachment_url: data.publicUrl,
           attachment_type: attachmentType
         });
+        
+      if (error) throw error;
 
     } catch (error) {
+      console.error('Error uploading file:', error);
       toast({
         title: "Error",
         description: "Failed to upload file",
         variant: "destructive"
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -154,6 +223,7 @@ export const ChatRoom = () => {
       mediaRecorder.start();
       setIsRecording(true);
     } catch (error) {
+      console.error('Error starting recording:', error);
       toast({
         title: "Error",
         description: "Failed to start recording",
@@ -170,9 +240,10 @@ export const ChatRoom = () => {
   };
 
   const handleVoiceUpload = async (audioBlob: Blob) => {
-    if (!user || !roomId) return;
+    if (!user || !roomId || roomId === 'new') return;
 
     try {
+      setIsLoading(true);
       const fileName = `${Math.random()}.webm`;
       const filePath = `${roomId}/${fileName}`;
 
@@ -186,7 +257,7 @@ export const ChatRoom = () => {
         .from('chat_attachments')
         .getPublicUrl(filePath);
 
-      await supabase
+      const { error } = await supabase
         .from('chat_messages')
         .insert({
           room_id: roomId,
@@ -194,15 +265,31 @@ export const ChatRoom = () => {
           attachment_url: data.publicUrl,
           attachment_type: 'voice'
         });
+        
+      if (error) throw error;
 
     } catch (error) {
+      console.error('Error uploading voice message:', error);
       toast({
         title: "Error",
         description: "Failed to upload voice message",
         variant: "destructive"
       });
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  if (roomId === 'new') {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-12rem)]">
+        <div className="text-center">
+          <h2 className="text-xl mb-4">Creating new chat room...</h2>
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-12rem)]">
@@ -240,18 +327,21 @@ export const ChatRoom = () => {
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type a message..."
-            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+            onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleSendMessage()}
+            disabled={isLoading}
           />
           <input
             type="file"
             id="file-upload"
             className="hidden"
             onChange={handleFileUpload}
+            disabled={isLoading}
           />
           <Button
             variant="outline"
             size="icon"
             onClick={() => document.getElementById('file-upload')?.click()}
+            disabled={isLoading}
           >
             <Paperclip className="h-4 w-4" />
           </Button>
@@ -260,11 +350,16 @@ export const ChatRoom = () => {
             size="icon"
             onClick={isRecording ? stopRecording : startRecording}
             className={isRecording ? 'animate-pulse bg-red-100' : ''}
+            disabled={isLoading && !isRecording}
           >
             <Mic className="h-4 w-4" />
           </Button>
-          <Button onClick={handleSendMessage}>
-            <Send className="h-4 w-4" />
+          <Button onClick={handleSendMessage} disabled={isLoading || !newMessage.trim()}>
+            {isLoading ? (
+              <span className="h-4 w-4 border-2 border-t-transparent border-primary-foreground rounded-full animate-spin mr-2"></span>
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
           </Button>
         </div>
       </div>

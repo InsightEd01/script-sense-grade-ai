@@ -1,4 +1,5 @@
 
+import { useEffect, useState } from "react";
 import {
   Carousel,
   CarouselContent,
@@ -6,6 +7,7 @@ import {
   CarouselPrevious,
   CarouselItem,
 } from "@/components/ui/carousel";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const images = [
   "/lovable-uploads/3f250b3b-d11c-4b15-a724-5510cc7cd23e.png",
@@ -15,6 +17,20 @@ const images = [
 ];
 
 export const HeroCarousel = () => {
+  const [api, setApi] = useState<{ scrollNext: () => void } | null>(null);
+  const isMobile = useIsMobile();
+  
+  // Auto-rotate carousel
+  useEffect(() => {
+    if (!api) return;
+    
+    const interval = setInterval(() => {
+      api.scrollNext();
+    }, 5000); // Rotate every 5 seconds
+    
+    return () => clearInterval(interval);
+  }, [api]);
+
   return (
     <Carousel
       opts={{
@@ -22,6 +38,7 @@ export const HeroCarousel = () => {
         loop: true,
       }}
       className="w-full max-w-4xl mx-auto"
+      setApi={setApi}
     >
       <CarouselContent>
         {images.map((src, index) => (
@@ -31,17 +48,16 @@ export const HeroCarousel = () => {
                 <img
                   src={src}
                   alt={`Education Slide ${index + 1}`}
-                  className="w-full h-[400px] object-cover transition-transform duration-500 hover:scale-105"
+                  className={`w-full ${isMobile ? 'h-[250px]' : 'h-[400px]'} object-cover transition-transform duration-500 hover:scale-105`}
                 />
               </div>
             </div>
           </CarouselItem>
         ))}
       </CarouselContent>
-      <div className="hidden md:block">
-        <CarouselPrevious className="left-2" />
-        <CarouselNext className="right-2" />
-      </div>
+      {/* Show navigation arrows on both mobile and desktop */}
+      <CarouselPrevious className="left-2" />
+      <CarouselNext className="right-2" />
     </Carousel>
   );
 };

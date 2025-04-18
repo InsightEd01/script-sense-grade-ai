@@ -78,7 +78,7 @@ export async function performEnhancedOCR(imageUrl: string): Promise<{ text: stri
     await worker.setParameters({
       tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,!?()[]{}+-=/*@#$%&\'";: ', // Allow common characters
       tessedit_ocr_engine_mode: 1, // LSTM_ONLY mode
-      tessedit_pageseg_mode: "6",  // Specify as string "6" for PSM.SINGLE_BLOCK
+      tessedit_pageseg_mode: 6,  // Fixed: Using numeric value instead of string
       tessjs_create_pdf: '0',      // Disable PDF output for faster processing
       tessjs_create_hocr: '0',     // Disable HOCR output
       preserve_interword_spaces: '1',
@@ -138,13 +138,15 @@ export async function performEnhancedOCR(imageUrl: string): Promise<{ text: stri
   }
 }
 
-export function getOCRMetrics(): OCRMetrics & { averageProcessingTime?: number } {
+export function getOCRMetrics(): OCRMetrics & { averageProcessingTime: number } {
   // Return a new object with the added computed property
+  const average = metrics.processingTimes.length > 0 
+    ? metrics.processingTimes.reduce((a, b) => a + b, 0) / metrics.processingTimes.length
+    : 0;
+    
   return {
     ...metrics,
-    averageProcessingTime: metrics.processingTimes.length > 0 
-      ? metrics.processingTimes.reduce((a, b) => a + b, 0) / metrics.processingTimes.length
-      : 0
+    averageProcessingTime: average
   };
 }
 
