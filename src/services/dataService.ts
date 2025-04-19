@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { AnswerScript, Examination, Question, Student, Subject, Teacher } from '@/types/supabase';
 
@@ -117,18 +116,14 @@ export async function deleteStudent(id: string): Promise<void> {
 
 // Subjects
 export async function getSubjects(context?: unknown): Promise<Subject[]> {
-  // The context parameter can be the React Query context or a teacherId string
   let teacherId: string | undefined;
   
-  // Check if context is from React Query or a direct teacherId
   if (typeof context === 'object' && context !== null) {
-    // It's likely a QueryFunctionContext
     const queryKey = (context as any).queryKey;
     if (Array.isArray(queryKey) && queryKey.length > 1) {
       teacherId = queryKey[1] as string;
     }
   } else if (typeof context === 'string') {
-    // It's a direct teacherId
     teacherId = context;
   }
   
@@ -309,7 +304,6 @@ export async function getTeachers(): Promise<Teacher[]> {
 
 export async function deleteTeacher(id: string): Promise<void> {
   try {
-    // First, get the user email to delete their auth account
     const { data: teacher, error: teacherError } = await supabase
       .from('teachers')
       .select('*, users(*)')
@@ -321,7 +315,6 @@ export async function deleteTeacher(id: string): Promise<void> {
       throw teacherError;
     }
     
-    // Delete the teacher record
     const { error: deleteError } = await supabase
       .from('teachers')
       .delete()
@@ -332,7 +325,6 @@ export async function deleteTeacher(id: string): Promise<void> {
       throw deleteError;
     }
     
-    // Delete the user record - auth user will be cascaded automatically
     if (teacher && teacher.id) {
       const { error: userDeleteError } = await supabase
         .from('users')
@@ -341,7 +333,6 @@ export async function deleteTeacher(id: string): Promise<void> {
         
       if (userDeleteError) {
         console.error('Error deleting user record:', userDeleteError);
-        // Don't throw error here as the teacher was already deleted
       }
     }
   } catch (error) {
@@ -389,22 +380,26 @@ export async function updateAnswer(answerId: string, updates: {
 // Chat Functions
 export async function createChatRoom(name: string, userId: string) {
   try {
-    // Create the chat room
     const { data: roomData, error: roomError } = await supabase
       .from('chat_rooms')
-      .insert({ name, created_by: userId })
+      .insert({
+        name,
+        created_by: userId
+      })
       .select()
       .single();
-      
+
     if (roomError) throw roomError;
-    
-    // Add the creator as a participant
+
     const { error: participantError } = await supabase
       .from('chat_participants')
-      .insert({ room_id: roomData.id, user_id: userId });
-      
+      .insert({
+        room_id: roomData.id,
+        user_id: userId
+      });
+
     if (participantError) throw participantError;
-    
+
     return roomData;
   } catch (error) {
     console.error('createChatRoom error:', error);
@@ -416,11 +411,13 @@ export async function getChatRooms() {
   try {
     const { data, error } = await supabase
       .from('chat_rooms')
-      .select('*')
+      .select(`
+        *,
+        chat_participants:chat_participants(user_id)
+      `)
       .order('created_at', { ascending: false });
-      
+
     if (error) throw error;
-    
     return data || [];
   } catch (error) {
     console.error('getChatRooms error:', error);

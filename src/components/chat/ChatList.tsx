@@ -22,28 +22,13 @@ export const ChatList = () => {
     const fetchChatRooms = async () => {
       try {
         setIsLoading(true);
-        
-        // Get rooms where the user is a participant or creator
-        let query = supabase
-          .from('chat_rooms')
-          .select('*');
-          
-        // Add order after building the query
-        query = query.order('created_at', { ascending: false });
-        
-        const { data, error } = await query;
-
-        if (error) {
-          console.error('Error fetching chat rooms:', error);
-          throw error;
-        }
-
-        setChatRooms(data || []);
+        const data = await getChatRooms();
+        setChatRooms(data);
       } catch (error) {
         console.error('Error fetching chat rooms:', error);
         toast({
           title: "Error",
-          description: "Failed to load chat rooms. Try refreshing the page.",
+          description: "Failed to load chat rooms. Please try again.",
           variant: "destructive"
         });
       } finally {
@@ -53,13 +38,12 @@ export const ChatList = () => {
 
     fetchChatRooms();
     
-    // Subscribe to realtime updates for chat_rooms
+    // Set up realtime subscription for chat rooms
     const channel = supabase
       .channel('chat_rooms_changes')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'chat_rooms' },
-        (payload) => {
-          console.log('Chat room changed:', payload);
+        () => {
           fetchChatRooms();
         }
       )
@@ -70,16 +54,34 @@ export const ChatList = () => {
     };
   }, [user, toast]);
 
-  const handleNewChatClick = () => {
+  const handleNewChatClick = async () => {
     if (!(isTeacher || isAdmin)) {
       toast({
         title: "Permission Denied",
-        description: "Only teachers can create new chat rooms",
+        description: "Only teachers and admins can create new chat rooms",
         variant: "destructive"
       });
       return;
     }
-    navigate('/chat/new');
+    
+    try {
+      const roomName = `Chat Room ${new Date().toLocaleDateString()}`;
+      if (!user?.id) throw new Error('User not authenticated');
+      
+      await createChatRoom(roomName, user.id);
+      
+      toast({
+        title: "Success",
+        description: "Chat room created successfully",
+      });
+    } catch (error) {
+      console.error('Error creating chat room:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create chat room. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   if (isLoading) {

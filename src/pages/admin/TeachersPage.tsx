@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -15,7 +14,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Loading } from '@/components/ui/loading';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-// Define the interface for the teacher data structure
 interface TeacherWithUser {
   id: string;
   name: string;
@@ -33,20 +31,17 @@ const TeachersPage = () => {
   const { signUp } = useAuth();
   const queryClient = useQueryClient();
 
-  // Form state
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch teachers data
   const { data: teachers, isLoading, error } = useQuery({
     queryKey: ['teachers'],
     queryFn: getTeachers
   });
 
-  // Delete teacher mutation
   const deleteTeacherMutation = useMutation({
     mutationFn: deleteTeacher,
     onSuccess: () => {
@@ -67,40 +62,11 @@ const TeachersPage = () => {
     }
   });
 
-  // Handle adding a new teacher
   const handleAddTeacher = async () => {
-    // Validate form
-    if (!name.trim()) {
+    if (!name.trim() || !email.trim() || !password || password !== confirmPassword) {
       toast({
-        title: "Error",
-        description: "Name is required",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!email.trim()) {
-      toast({
-        title: "Error",
-        description: "Email is required",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!password) {
-      toast({
-        title: "Error",
-        description: "Password is required",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      toast({
-        title: "Error",
-        description: "Passwords do not match",
+        title: "Validation Error",
+        description: "Please check all required fields and password confirmation.",
         variant: "destructive"
       });
       return;
@@ -109,10 +75,8 @@ const TeachersPage = () => {
     setIsSubmitting(true);
 
     try {
-      // Create the user with auth
       await signUp(email, password, 'teacher', name);
       
-      // Clear the form and close the dialog
       setName('');
       setEmail('');
       setPassword('');
@@ -124,13 +88,12 @@ const TeachersPage = () => {
         description: "Teacher added successfully",
       });
       
-      // Refresh the teachers data
       queryClient.invalidateQueries({queryKey: ['teachers']});
     } catch (error) {
       console.error('Add teacher error:', error);
       toast({
         title: "Error",
-        description: `Failed to add teacher: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        description: error instanceof Error ? error.message : 'Failed to add teacher',
         variant: "destructive"
       });
     } finally {
@@ -138,20 +101,17 @@ const TeachersPage = () => {
     }
   };
 
-  // Handle opening delete alert
   const handleDeleteClick = (id: string) => {
     setSelectedTeacherId(id);
     setIsDeleteAlertOpen(true);
   };
 
-  // Handle confirming delete
   const handleConfirmDelete = () => {
     if (selectedTeacherId) {
       deleteTeacherMutation.mutate(selectedTeacherId);
     }
   };
 
-  // Filter teachers based on search term
   const filteredTeachers = teachers?.filter((teacher: TeacherWithUser) => 
     teacher.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (teacher.users?.email && teacher.users.email.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -318,7 +278,6 @@ const TeachersPage = () => {
         </Card>
       </div>
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
