@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { AnswerScript, Examination, Question, Student, Subject, Teacher } from '@/types/supabase';
 
@@ -288,27 +289,63 @@ export async function createQuestion(question: {
 
 // Teachers
 export async function getTeachers(): Promise<Teacher[]> {
-  const { data, error } = await supabase
-    .from('teachers')
-    .select('*, users(*)')
-    .order('name', { ascending: true });
+  try {
+    const { data, error } = await supabase
+      .from('teachers')
+      .select('*, users(*)')
+      .order('name', { ascending: true });
 
-  if (error) {
-    console.error('Error fetching teachers:', error);
+    if (error) {
+      console.error('Error fetching teachers:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('getTeachers error:', error);
     throw error;
   }
-
-  return data || [];
 }
 
 export async function deleteTeacher(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('teachers')
-    .delete()
-    .eq('id', id);
+  try {
+    // First, get the user email to delete their auth account
+    const { data: teacher, error: teacherError } = await supabase
+      .from('teachers')
+      .select('*, users(*)')
+      .eq('id', id)
+      .single();
+    
+    if (teacherError) {
+      console.error('Error getting teacher details:', teacherError);
+      throw teacherError;
+    }
+    
+    // Delete the teacher record
+    const { error: deleteError } = await supabase
+      .from('teachers')
+      .delete()
+      .eq('id', id);
 
-  if (error) {
-    console.error('Error deleting teacher:', error);
+    if (deleteError) {
+      console.error('Error deleting teacher:', deleteError);
+      throw deleteError;
+    }
+    
+    // Delete the user record - auth user will be cascaded automatically
+    if (teacher && teacher.id) {
+      const { error: userDeleteError } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', id);
+        
+      if (userDeleteError) {
+        console.error('Error deleting user record:', userDeleteError);
+        // Don't throw error here as the teacher was already deleted
+      }
+    }
+  } catch (error) {
+    console.error('deleteTeacher error:', error);
     throw error;
   }
 }
@@ -347,4 +384,63 @@ export async function updateAnswer(answerId: string, updates: {
   }
 
   return data;
+}
+
+// Chat Functions
+export async function createChatRoom(name: string, userId: string) {
+  try {
+    // Create the chat room
+    const { data: roomData, error: roomError } = await supabase
+      .from('chat_rooms')
+      .insert({ name, created_by: userId })
+      .select()
+      .single();
+      
+    if (roomError) throw roomError;
+    
+    // Add the creator as a participant
+    const { error: participantError } = await supabase
+      .from('chat_participants')
+      .insert({ room_id: roomData.id, user_id: userId });
+      
+    if (participantError) throw participantError;
+    
+    return roomData;
+  } catch (error) {
+    console.error('createChatRoom error:', error);
+    throw error;
+  }
+}
+
+export async function getChatRooms() {
+  try {
+    const { data, error } = await supabase
+      .from('chat_rooms')
+      .select('*')
+      .order('created_at', { ascending: false });
+      
+    if (error) throw error;
+    
+    return data || [];
+  } catch (error) {
+    console.error('getChatRooms error:', error);
+    throw error;
+  }
+}
+
+export async function sendMessage(roomId: string, senderId: string, message: string) {
+  try {
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .insert({ room_id: roomId, sender_id: senderId, message_text: message })
+      .select()
+      .single();
+      
+    if (error) throw error;
+    
+    return data;
+  } catch (error) {
+    console.error('sendMessage error:', error);
+    throw error;
+  }
 }

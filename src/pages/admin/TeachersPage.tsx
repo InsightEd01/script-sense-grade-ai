@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { PlusCircle, Search, Trash2, UserPlus } from 'lucide-react';
 import { getTeachers, deleteTeacher } from '@/services/dataService';
@@ -58,6 +58,7 @@ const TeachersPage = () => {
       setIsDeleteAlertOpen(false);
     },
     onError: (error) => {
+      console.error('Delete teacher error:', error);
       toast({
         title: "Error",
         description: `Failed to delete teacher: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -126,6 +127,7 @@ const TeachersPage = () => {
       // Refresh the teachers data
       queryClient.invalidateQueries({queryKey: ['teachers']});
     } catch (error) {
+      console.error('Add teacher error:', error);
       toast({
         title: "Error",
         description: `Failed to add teacher: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -269,7 +271,10 @@ const TeachersPage = () => {
               </div>
             ) : error ? (
               <div className="text-center py-10 text-red-500">
-                Error loading teachers. Please try again.
+                <p>Error loading teachers. Please try again.</p>
+                <pre className="mt-2 text-xs overflow-auto max-w-full">
+                  {error instanceof Error ? error.message : 'Unknown error'}
+                </pre>
               </div>
             ) : filteredTeachers && filteredTeachers.length > 0 ? (
               <Table>

@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Paperclip, Send, Mic } from 'lucide-react';
@@ -7,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { ChatMessage } from '@/types/chat';
 import { useAuth } from '@/contexts/AuthContext';
+import { Loading } from '@/components/ui/loading';
 
 export const ChatRoom = () => {
   const { roomId } = useParams();
@@ -17,6 +19,7 @@ export const ChatRoom = () => {
   const [newMessage, setNewMessage] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCreatingRoom, setIsCreatingRoom] = useState(roomId === 'new');
   const [roomName, setRoomName] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -30,17 +33,22 @@ export const ChatRoom = () => {
   }, [roomId, user]);
 
   const createNewChatRoom = async () => {
+    if (!user) return;
+    
     try {
+      setIsCreatingRoom(true);
       setIsLoading(true);
       const newRoomName = `Chat Room ${new Date().toLocaleDateString()}`;
+      
+      console.log('Creating new chat room with name:', newRoomName);
       
       // Insert new chat room
       const { data: roomData, error: roomError } = await supabase
         .from('chat_rooms')
         .insert([
-          { name: newRoomName, created_by: user?.id }
+          { name: newRoomName, created_by: user.id }
         ])
-        .select('*')
+        .select()
         .single();
       
       if (roomError) {
@@ -48,17 +56,17 @@ export const ChatRoom = () => {
         throw roomError;
       }
       
+      console.log('Created chat room:', roomData);
+      
       if (!roomData || !roomData.id) {
         throw new Error('Failed to retrieve the created chat room data');
       }
-      
-      console.log('Created chat room:', roomData);
       
       // Add the creator as a participant
       const { error: participantError } = await supabase
         .from('chat_participants')
         .insert([
-          { room_id: roomData.id, user_id: user?.id }
+          { room_id: roomData.id, user_id: user.id }
         ]);
       
       if (participantError) {
@@ -83,6 +91,7 @@ export const ChatRoom = () => {
       navigate('/chat');
     } finally {
       setIsLoading(false);
+      setIsCreatingRoom(false);
     }
   };
 
@@ -91,6 +100,8 @@ export const ChatRoom = () => {
 
     const fetchRoomDetails = async () => {
       try {
+        setIsLoading(true);
+        
         // Get room name
         const { data: roomData, error: roomError } = await supabase
           .from('chat_rooms')
@@ -98,8 +109,35 @@ export const ChatRoom = () => {
           .eq('id', roomId)
           .single();
           
-        if (roomError) throw roomError;
+        if (roomError) {
+          console.error('Error fetching room details:', roomError);
+          throw roomError;
+        }
+        
         if (roomData) setRoomName(roomData.name);
+        
+        // Check if user is a participant, if not add them
+        const { data: participantData, error: participantCheckError } = await supabase
+          .from('chat_participants')
+          .select('id')
+          .eq('room_id', roomId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+        
+        if (participantCheckError) {
+          console.error('Error checking participant:', participantCheckError);
+        }
+        
+        // If user is not a participant, add them
+        if (!participantData) {
+          const { error: addParticipantError } = await supabase
+            .from('chat_participants')
+            .insert([{ room_id: roomId, user_id: user.id }]);
+          
+          if (addParticipantError) {
+            console.error('Error adding participant:', addParticipantError);
+          }
+        }
         
         // Fetch messages
         const { data: messagesData, error: messagesError } = await supabase
@@ -108,9 +146,12 @@ export const ChatRoom = () => {
           .eq('room_id', roomId)
           .order('sent_at');
 
-        if (messagesError) throw messagesError;
+        if (messagesError) {
+          console.error('Error fetching messages:', messagesError);
+          throw messagesError;
+        }
         
-        setMessages(messagesData as ChatMessage[]);
+        setMessages(messagesData || []);
         scrollToBottom();
       } catch (error) {
         console.error('Error fetching chat data:', error);
@@ -119,6 +160,8 @@ export const ChatRoom = () => {
           description: "Failed to load chat room data",
           variant: "destructive"
         });
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -131,7 +174,8 @@ export const ChatRoom = () => {
         { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${roomId}` },
         (payload) => {
           console.log('New message received:', payload);
-          setMessages(prev => [...prev, payload.new as ChatMessage]);
+          const newMessage = payload.new as ChatMessage;
+          setMessages(prev => [...prev, newMessage]);
           scrollToBottom();
         }
       )
@@ -140,7 +184,7 @@ export const ChatRoom = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [roomId, user]);
+  }, [roomId, user, toast]);
 
   const scrollToBottom = () => {
     setTimeout(() => {
@@ -153,6 +197,8 @@ export const ChatRoom = () => {
 
     try {
       setIsLoading(true);
+      
+      console.log('Sending message to room:', roomId);
       
       const { error } = await supabase
         .from('chat_messages')
@@ -284,6 +330,14 @@ export const ChatRoom = () => {
       const fileName = `${Math.random()}.webm`;
       const filePath = `${roomId}/${fileName}`;
 
+      // Create storage bucket if it doesn't exist
+      const { data: buckets } = await supabase.storage.listBuckets();
+      if (!buckets?.find(b => b.name === 'chat_attachments')) {
+        await supabase.storage.createBucket('chat_attachments', {
+          public: true
+        });
+      }
+
       const { error: uploadError } = await supabase.storage
         .from('chat_attachments')
         .upload(filePath, audioBlob);
@@ -317,13 +371,21 @@ export const ChatRoom = () => {
     }
   };
 
-  if (roomId === 'new') {
+  if (isCreatingRoom) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-12rem)]">
         <div className="text-center">
           <h2 className="text-xl mb-4">Creating new chat room...</h2>
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
+          <Loading size="lg" />
         </div>
+      </div>
+    );
+  }
+
+  if (isLoading && messages.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-12rem)]">
+        <Loading size="lg" text="Loading chat..." />
       </div>
     );
   }
@@ -401,9 +463,13 @@ export const ChatRoom = () => {
           >
             <Mic className="h-4 w-4" />
           </Button>
-          <Button onClick={handleSendMessage} disabled={isLoading || !newMessage.trim()}>
+          <Button 
+            onClick={handleSendMessage} 
+            disabled={isLoading || !newMessage.trim()}
+            className="bg-scriptsense-primary hover:bg-blue-800"
+          >
             {isLoading ? (
-              <span className="h-4 w-4 border-2 border-t-transparent border-primary-foreground rounded-full animate-spin mr-2"></span>
+              <Loading size="sm" className="mr-2" />
             ) : (
               <Send className="h-4 w-4 mr-2" />
             )}

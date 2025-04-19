@@ -9,21 +9,21 @@ import { useToast } from '@/hooks/use-toast';
 
 const ChatPage = () => {
   const { roomId } = useParams();
-  const { isTeacher } = useAuth();
+  const { isTeacher, isAdmin, isLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   // Redirect non-teachers away from new chat page
   useEffect(() => {
-    if (roomId === 'new' && !isTeacher) {
+    if (!isLoading && roomId === 'new' && !(isTeacher || isAdmin)) {
       toast({
         title: "Permission Denied",
-        description: "Only teachers can create new chat rooms",
+        description: "Only teachers and admins can create new chat rooms",
         variant: "destructive"
       });
       navigate('/chat');
     }
-  }, [roomId, isTeacher]);
+  }, [roomId, isTeacher, isAdmin, isLoading, navigate, toast]);
 
   return (
     <DashboardLayout>

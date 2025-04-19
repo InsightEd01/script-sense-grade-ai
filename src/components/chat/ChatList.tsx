@@ -12,7 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 export const ChatList = () => {
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { user, isTeacher } = useAuth();
+  const { user, isTeacher, isAdmin } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -23,19 +23,27 @@ export const ChatList = () => {
       try {
         setIsLoading(true);
         
-        const { data, error } = await supabase
+        // Get rooms where the user is a participant or creator
+        let query = supabase
           .from('chat_rooms')
-          .select('*')
-          .order('created_at', { ascending: false });
+          .select('*');
+          
+        // Add order after building the query
+        query = query.order('created_at', { ascending: false });
+        
+        const { data, error } = await query;
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error fetching chat rooms:', error);
+          throw error;
+        }
 
-        setChatRooms(data);
+        setChatRooms(data || []);
       } catch (error) {
         console.error('Error fetching chat rooms:', error);
         toast({
           title: "Error",
-          description: "Failed to load chat rooms",
+          description: "Failed to load chat rooms. Try refreshing the page.",
           variant: "destructive"
         });
       } finally {
@@ -45,22 +53,25 @@ export const ChatList = () => {
 
     fetchChatRooms();
     
-    // Subscribe to realtime updates
+    // Subscribe to realtime updates for chat_rooms
     const channel = supabase
       .channel('chat_rooms_changes')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'chat_rooms' },
-        () => fetchChatRooms()
+        (payload) => {
+          console.log('Chat room changed:', payload);
+          fetchChatRooms();
+        }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, toast]);
 
   const handleNewChatClick = () => {
-    if (!isTeacher) {
+    if (!(isTeacher || isAdmin)) {
       toast({
         title: "Permission Denied",
         description: "Only teachers can create new chat rooms",
