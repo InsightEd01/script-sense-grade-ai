@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Paperclip, Send, Mic } from 'lucide-react';
@@ -18,6 +17,7 @@ export const ChatRoom = () => {
   const [newMessage, setNewMessage] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [roomName, setRoomName] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -32,35 +32,46 @@ export const ChatRoom = () => {
   const createNewChatRoom = async () => {
     try {
       setIsLoading(true);
-      const roomName = `Chat Room ${new Date().toLocaleDateString()}`;
+      const newRoomName = `Chat Room ${new Date().toLocaleDateString()}`;
       
+      // Insert new chat room
       const { data: roomData, error: roomError } = await supabase
         .from('chat_rooms')
-        .insert({
-          name: roomName,
-          created_by: user?.id
-        })
-        .select()
+        .insert([
+          { name: newRoomName, created_by: user?.id }
+        ])
+        .select('*')
         .single();
       
-      if (roomError) throw roomError;
+      if (roomError) {
+        console.error('Error creating chat room:', roomError);
+        throw roomError;
+      }
+      
+      if (!roomData || !roomData.id) {
+        throw new Error('Failed to retrieve the created chat room data');
+      }
+      
+      console.log('Created chat room:', roomData);
       
       // Add the creator as a participant
       const { error: participantError } = await supabase
         .from('chat_participants')
-        .insert({
-          room_id: roomData.id,
-          user_id: user?.id
-        });
+        .insert([
+          { room_id: roomData.id, user_id: user?.id }
+        ]);
       
-      if (participantError) throw participantError;
+      if (participantError) {
+        console.error('Error adding participant:', participantError);
+        throw participantError;
+      }
       
       // Navigate to the new room
       navigate(`/chat/${roomData.id}`, { replace: true });
       
       toast({
         title: "Success",
-        description: "New chat room created",
+        description: "New chat room created successfully",
       });
     } catch (error) {
       console.error('Error creating chat room:', error);
@@ -78,38 +89,48 @@ export const ChatRoom = () => {
   useEffect(() => {
     if (!roomId || roomId === 'new' || !user) return;
 
-    const fetchMessages = async () => {
+    const fetchRoomDetails = async () => {
       try {
-        const { data, error } = await supabase
+        // Get room name
+        const { data: roomData, error: roomError } = await supabase
+          .from('chat_rooms')
+          .select('name')
+          .eq('id', roomId)
+          .single();
+          
+        if (roomError) throw roomError;
+        if (roomData) setRoomName(roomData.name);
+        
+        // Fetch messages
+        const { data: messagesData, error: messagesError } = await supabase
           .from('chat_messages')
           .select('*')
           .eq('room_id', roomId)
           .order('sent_at');
 
-        if (error) throw error;
-
-        // Cast data to ChatMessage[] to ensure type compatibility
-        setMessages(data as ChatMessage[]);
+        if (messagesError) throw messagesError;
+        
+        setMessages(messagesData as ChatMessage[]);
         scrollToBottom();
       } catch (error) {
-        console.error('Error fetching messages:', error);
+        console.error('Error fetching chat data:', error);
         toast({
           title: "Error",
-          description: "Failed to load messages",
+          description: "Failed to load chat room data",
           variant: "destructive"
         });
       }
     };
 
-    fetchMessages();
+    fetchRoomDetails();
 
     // Subscribe to new messages
     const channel = supabase
-      .channel('chat_messages_changes')
+      .channel(`room_${roomId}`)
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${roomId}` },
         (payload) => {
-          // Cast new message to ChatMessage to ensure type compatibility
+          console.log('New message received:', payload);
           setMessages(prev => [...prev, payload.new as ChatMessage]);
           scrollToBottom();
         }
@@ -122,7 +143,9 @@ export const ChatRoom = () => {
   }, [roomId, user]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
   };
 
   const handleSendMessage = async () => {
@@ -133,20 +156,23 @@ export const ChatRoom = () => {
       
       const { error } = await supabase
         .from('chat_messages')
-        .insert({
+        .insert([{
           room_id: roomId,
           sender_id: user.id,
           message_text: newMessage
-        });
+        }]);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error sending message:', error);
+        throw error;
+      }
 
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
         title: "Error",
-        description: "Failed to send message",
+        description: "Failed to send message. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -164,11 +190,22 @@ export const ChatRoom = () => {
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `${roomId}/${fileName}`;
 
+      // Create storage bucket if it doesn't exist
+      const { data: buckets } = await supabase.storage.listBuckets();
+      if (!buckets?.find(b => b.name === 'chat_attachments')) {
+        await supabase.storage.createBucket('chat_attachments', {
+          public: true
+        });
+      }
+
       const { error: uploadError } = await supabase.storage
         .from('chat_attachments')
         .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
 
       const { data } = supabase.storage
         .from('chat_attachments')
@@ -182,12 +219,12 @@ export const ChatRoom = () => {
 
       const { error } = await supabase
         .from('chat_messages')
-        .insert({
+        .insert([{
           room_id: roomId,
           sender_id: user.id,
           attachment_url: data.publicUrl,
           attachment_type: attachmentType
-        });
+        }]);
         
       if (error) throw error;
 
@@ -195,7 +232,7 @@ export const ChatRoom = () => {
       console.error('Error uploading file:', error);
       toast({
         title: "Error",
-        description: "Failed to upload file",
+        description: "Failed to upload file. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -293,31 +330,41 @@ export const ChatRoom = () => {
 
   return (
     <div className="flex flex-col h-[calc(100vh-12rem)]">
+      <div className="border-b p-3 bg-muted/20">
+        <h2 className="text-xl font-semibold">{roomName || 'Chat Room'}</h2>
+      </div>
+      
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
-          >
-            <div className={`max-w-[70%] ${message.sender_id === user?.id ? 'bg-primary text-primary-foreground' : 'bg-muted'} rounded-lg p-3`}>
-              {message.message_text && <p>{message.message_text}</p>}
-              {message.attachment_url && message.attachment_type === 'image' && (
-                <img src={message.attachment_url} alt="Attachment" className="max-w-full rounded" />
-              )}
-              {message.attachment_url && message.attachment_type === 'voice' && (
-                <audio controls src={message.attachment_url} className="max-w-full" />
-              )}
-              {message.attachment_url && message.attachment_type === 'file' && (
-                <a href={message.attachment_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
-                  Download File
-                </a>
-              )}
-              <span className="text-xs opacity-70 mt-1 block">
-                {new Date(message.sent_at).toLocaleTimeString()}
-              </span>
-            </div>
+        {messages.length === 0 ? (
+          <div className="text-center text-muted-foreground p-8">
+            No messages yet. Start the conversation!
           </div>
-        ))}
+        ) : (
+          messages.map((message) => (
+            <div
+              key={message.id}
+              className={`flex ${message.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
+            >
+              <div className={`max-w-[70%] ${message.sender_id === user?.id ? 'bg-primary text-primary-foreground' : 'bg-muted'} rounded-lg p-3`}>
+                {message.message_text && <p>{message.message_text}</p>}
+                {message.attachment_url && message.attachment_type === 'image' && (
+                  <img src={message.attachment_url} alt="Attachment" className="max-w-full rounded" />
+                )}
+                {message.attachment_url && message.attachment_type === 'voice' && (
+                  <audio controls src={message.attachment_url} className="max-w-full" />
+                )}
+                {message.attachment_url && message.attachment_type === 'file' && (
+                  <a href={message.attachment_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+                    Download File
+                  </a>
+                )}
+                <span className="text-xs opacity-70 mt-1 block">
+                  {new Date(message.sent_at).toLocaleTimeString()}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -358,8 +405,9 @@ export const ChatRoom = () => {
             {isLoading ? (
               <span className="h-4 w-4 border-2 border-t-transparent border-primary-foreground rounded-full animate-spin mr-2"></span>
             ) : (
-              <Send className="h-4 w-4" />
+              <Send className="h-4 w-4 mr-2" />
             )}
+            Send
           </Button>
         </div>
       </div>

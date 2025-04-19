@@ -126,7 +126,8 @@ serve(async (req: Request): Promise<Response> => {
       JSON.stringify({ 
         success: true, 
         message: 'Answer script processed successfully',
-        note: 'OCR placeholder responses created.'
+        note: 'OCR placeholder responses created.',
+        extractedText: sampleTexts.join('\n\n---\n\n')
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

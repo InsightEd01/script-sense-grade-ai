@@ -26,7 +26,7 @@ export const HeroCarousel = () => {
     
     const interval = setInterval(() => {
       api.scrollNext();
-    }, 5000); // Rotate every 5 seconds
+    }, 4000); // Rotate every 4 seconds
     
     return () => clearInterval(interval);
   }, [api]);
@@ -55,7 +55,6 @@ export const HeroCarousel = () => {
           </CarouselItem>
         ))}
       </CarouselContent>
-      {/* Show navigation arrows on both mobile and desktop */}
       <CarouselPrevious className="left-2" />
       <CarouselNext className="right-2" />
     </Carousel>

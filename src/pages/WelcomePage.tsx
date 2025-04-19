@@ -1,3 +1,4 @@
+
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { FileText, CheckCircle, FileImage, BarChart, Users, ArrowRight, Star, School, Code } from 'lucide-react';
@@ -54,7 +55,8 @@ const WelcomePage = () => {
                 </Link>
               </div>
             </div>
-            <div className="hidden lg:block">
+            {/* Show carousel on both mobile and desktop */}
+            <div className="lg:block mt-8 lg:mt-0">
               <HeroCarousel />
             </div>
           </div>
