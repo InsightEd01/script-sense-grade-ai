@@ -89,6 +89,34 @@ async function extractTextWithGemini(imageUrl: string): Promise<string> {
   }
 }
 
+// Helper function to trigger automatic grading after OCR
+async function triggerGrading(supabase, scriptId, autoGrade, customInstructions) {
+  try {
+    if (!autoGrade) {
+      console.log(`Auto-grading not enabled for script ${scriptId}`);
+      return;
+    }
+    
+    console.log(`Auto-triggering grading for script ${scriptId}`);
+    
+    const { data, error } = await supabase.functions.invoke('grade-answers', {
+      body: {
+        answerScriptId: scriptId,
+        customInstructions: customInstructions || undefined
+      }
+    });
+    
+    if (error) {
+      console.error(`Error auto-triggering grading: ${error.message}`);
+      return;
+    }
+    
+    console.log(`Auto-grading complete for script ${scriptId}: ${JSON.stringify(data)}`);
+  } catch (err) {
+    console.error(`Exception in auto-grading: ${err.message}`);
+  }
+}
+
 serve(async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -116,7 +144,7 @@ serve(async (req: Request): Promise<Response> => {
       )
     }
     
-    const { answerScriptId, imageUrl } = requestData;
+    const { answerScriptId, imageUrl, autoGrade, customInstructions } = requestData;
     
     if (!answerScriptId || !imageUrl) {
       return new Response(
@@ -125,7 +153,7 @@ serve(async (req: Request): Promise<Response> => {
       )
     }
     
-    console.log(`Processing script ${answerScriptId} with image ${imageUrl}`)
+    console.log(`Processing script ${answerScriptId} with image ${imageUrl}, autoGrade: ${autoGrade}`);
     
     // Update script status to OCR pending
     await supabase
@@ -242,6 +270,7 @@ serve(async (req: Request): Promise<Response> => {
       const question = questions[i];
       const questionText = segmentedAnswers[i] || `No text extracted for question ${i+1}`;
       
+      // Use upsert with onConflict for update strategy
       const { error: answerInsertError } = await supabase
         .from('answers')
         .upsert({
@@ -255,17 +284,24 @@ serve(async (req: Request): Promise<Response> => {
       }
     }
     
-    // Update script status to grading pending
-    await supabase
-      .from('answer_scripts')
-      .update({ processing_status: 'grading_pending' })
-      .eq('id', answerScriptId)
+    // Trigger auto-grading if enabled
+    if (autoGrade) {
+      // Update script status to grading pending
+      await supabase
+        .from('answer_scripts')
+        .update({ processing_status: 'grading_pending' })
+        .eq('id', answerScriptId)
+        
+      // Trigger grading in background to avoid timeouts
+      EdgeRuntime.waitUntil(triggerGrading(supabase, answerScriptId, autoGrade, customInstructions));
+    }
     
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: 'Answer script processed successfully with Gemini OCR',
-        extractedText: extractedText
+        extractedText: extractedText,
+        autoGradeStarted: !!autoGrade
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

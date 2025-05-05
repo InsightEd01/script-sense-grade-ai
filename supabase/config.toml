@@ -1,116 +1,34 @@
 
-# This file contains the RLS policies for the scriptSense application
+project_id = "pppteoxncuuraqjlrhir"
 
-# Teachers table policies
-# Enable RLS for teachers table
-# CREATE POLICY "Teachers can view their own record"
-# ON public.teachers
-# FOR SELECT
-# USING (id = auth.uid());
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
 
-# Students table policies
-# CREATE POLICY "Teachers can view their own students"
-# ON public.students
-# FOR SELECT
-# USING (teacher_id = auth.uid());
+[db]
+port = 54322
 
-# CREATE POLICY "Teachers can insert their own students"
-# ON public.students
-# FOR INSERT
-# WITH CHECK (teacher_id = auth.uid());
+[studio]
+enabled = true
+port = 54323
+api_url = "http://localhost:54321"
 
-# CREATE POLICY "Teachers can update their own students"
-# ON public.students
-# FOR UPDATE
-# USING (teacher_id = auth.uid());
+[inbucket]
+enabled = true
+port = 54324
 
-# CREATE POLICY "Teachers can delete their own students"
-# ON public.students
-# FOR DELETE
-# USING (teacher_id = auth.uid());
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
 
-# Subjects table policies
-# CREATE POLICY "Teachers can view their own subjects"
-# ON public.subjects
-# FOR SELECT
-# USING (teacher_id = auth.uid());
+[storage]
+enabled = true
 
-# CREATE POLICY "Teachers can insert their own subjects"
-# ON public.subjects
-# FOR INSERT
-# WITH CHECK (teacher_id = auth.uid());
+[[edge_functions]]
+name = "process-ocr"
+verify_jwt = true
 
-# CREATE POLICY "Teachers can update their own subjects"
-# ON public.subjects
-# FOR UPDATE
-# USING (teacher_id = auth.uid());
-
-# CREATE POLICY "Teachers can delete their own subjects"
-# ON public.subjects
-# FOR DELETE
-# USING (teacher_id = auth.uid());
-
-# Examinations table policies
-# CREATE POLICY "Teachers can view examinations for their subjects"
-# ON public.examinations
-# FOR SELECT
-# USING (subject_id IN (SELECT id FROM public.subjects WHERE teacher_id = auth.uid()));
-
-# Questions table policies
-# CREATE POLICY "Teachers can view questions for their examinations"
-# ON public.questions
-# FOR SELECT
-# USING (examination_id IN (
-#   SELECT id FROM public.examinations WHERE subject_id IN (
-#     SELECT id FROM public.subjects WHERE teacher_id = auth.uid()
-#   )
-# ));
-
-# Answer Scripts table policies
-# CREATE POLICY "Teachers can view answer scripts for their examinations"
-# ON public.answer_scripts
-# FOR SELECT
-# USING (examination_id IN (
-#   SELECT id FROM public.examinations WHERE subject_id IN (
-#     SELECT id FROM public.subjects WHERE teacher_id = auth.uid()
-#   )
-# ));
-
-# Chat Room policies
-# CREATE POLICY "Users can view chat rooms they are participants in"
-# ON public.chat_rooms
-# FOR SELECT
-# USING (
-#   id IN (SELECT room_id FROM public.chat_participants WHERE user_id = auth.uid())
-#   OR created_by = auth.uid()
-# );
-
-# CREATE POLICY "Users can create chat rooms"
-# ON public.chat_rooms
-# FOR INSERT
-# WITH CHECK (created_by = auth.uid());
-
-# Chat Messages policies
-# CREATE POLICY "Users can view messages from their rooms"
-# ON public.chat_messages
-# FOR SELECT
-# USING (room_id IN (SELECT room_id FROM public.chat_participants WHERE user_id = auth.uid()));
-
-# CREATE POLICY "Users can send messages to their rooms"
-# ON public.chat_messages
-# FOR INSERT
-# WITH CHECK (
-#   room_id IN (SELECT room_id FROM public.chat_participants WHERE user_id = auth.uid())
-#   AND sender_id = auth.uid()
-# );
-
-# Chat Participants policies
-# CREATE POLICY "Users can view their own participation"
-# ON public.chat_participants
-# FOR SELECT
-# USING (user_id = auth.uid());
-
-# CREATE POLICY "Users can add themselves to rooms"
-# ON public.chat_participants
-# FOR INSERT
-# WITH CHECK (user_id = auth.uid());
+[[edge_functions]]
+name = "grade-answers"
+verify_jwt = true
