@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -91,12 +92,14 @@ export function UploadScriptForm({ examinationId, students, onSuccess }: UploadS
         });
       }
       
-      // Upload the file with progress tracking - Fixed to use standard file upload without progress tracking
-      // since onUploadProgress is not available in the FileOptions type
+      // Upload the file with progress tracking
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('answer_scripts')
         .upload(filePath, imageFile, {
           upsert: true,
+          onUploadProgress: (progress) => {
+            setUploadProgress(Math.round((progress.loaded / progress.total) * 100));
+          },
         });
       
       if (uploadError) {
@@ -115,9 +118,6 @@ export function UploadScriptForm({ examinationId, students, onSuccess }: UploadS
         script_image_url: urlData.publicUrl,
         processing_status: 'uploaded'
       });
-      
-      // Set progress to 100% when the upload is complete
-      setUploadProgress(100);
       
       // Trigger OCR processing using the edge function
       const { data: ocrData, error: ocrError } = await supabase.functions.invoke('process-ocr', {
