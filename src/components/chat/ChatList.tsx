@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Loader2 } from 'lucide-react';
@@ -8,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { ChatRoom } from '@/types/chat';
 import { useAuth } from '@/contexts/AuthContext';
+import { createChatRoom, getChatRooms } from '@/services/dataService';
 
 export const ChatList = () => {
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);

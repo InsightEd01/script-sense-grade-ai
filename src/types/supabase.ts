@@ -1,4 +1,3 @@
-
 export interface Teacher {
   id: string;
   name: string;
@@ -72,6 +71,11 @@ export interface GradingResult {
   score: number;
   explanation: string;
   flags?: string[];
+}
+
+export interface OCRResult {
+  text: string;
+  confidence?: number;
 }
 
 export interface User {
