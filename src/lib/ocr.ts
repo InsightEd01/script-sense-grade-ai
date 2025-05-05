@@ -1,4 +1,6 @@
-import { performEnhancedOCR } from '@/services/ocrService';
+
+import { extractTextWithGemini } from '@/services/geminiOcrService';
+import { OCRResult } from '@/types/supabase';
 
 async function retryOperation<T>(
   operation: () => Promise<T>,
@@ -19,15 +21,16 @@ async function retryOperation<T>(
   throw lastError;
 }
 
-export async function performOCR(imageUrl: string): Promise<{ text: string; confidence: number }> {
+export async function performOCR(imageUrl: string): Promise<OCRResult> {
   try {
-    console.log('Starting OCR process for image:', imageUrl);
+    console.log('Starting OCR process with Gemini for image:', imageUrl);
 
     if (!validateImage(imageUrl)) {
       throw new Error('Invalid image URL provided for OCR');
     }
 
-    return await performEnhancedOCR(imageUrl);
+    // Use retryOperation for better reliability
+    return await retryOperation(() => extractTextWithGemini(imageUrl));
   } catch (error) {
     console.error('OCR processing failed:', error);
     throw error;
@@ -45,7 +48,7 @@ function validateImage(imageUrl: string): boolean {
   return true;
 }
 
-// Renamed from preprocessImage to handleImagePreprocessing to avoid conflict with imported function
+// Image preprocessing for better OCR results
 export async function handleImagePreprocessing(imageData: string, options = { contrast: 1.5, threshold: 140 }): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -66,21 +69,14 @@ export async function handleImagePreprocessing(imageData: string, options = { co
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
 
-        // Apply sharpening
-        const sharpenKernel = [
-          0, -1, 0,
-          -1, 5, -1,
-          0, -1, 0
-        ];
-        
-        // Apply grayscale and contrast
+        // Apply image enhancements for better OCR
         for (let i = 0; i < data.length; i += 4) {
           const avg = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
           const adjusted = options.contrast * (avg - 128) + 128;
           data[i] = data[i + 1] = data[i + 2] = adjusted;
         }
 
-        // Apply threshold
+        // Apply threshold for cleaner text
         for (let i = 0; i < data.length; i += 4) {
           const val = data[i] > options.threshold ? 255 : 0;
           data[i] = data[i + 1] = data[i + 2] = val;

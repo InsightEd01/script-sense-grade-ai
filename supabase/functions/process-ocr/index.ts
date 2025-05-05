@@ -3,9 +3,72 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
 
+const GEMINI_API_KEY = "AIzaSyDCq_tAdO5lqgsU5wlYtjhI0vpdk_jKr28";
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+// Function to perform OCR using the Gemini API
+async function extractTextWithGemini(imageUrl: string): Promise<string> {
+  try {
+    // Fetch the image data
+    const imgResponse = await fetch(imageUrl);
+    
+    if (!imgResponse.ok) {
+      throw new Error(`Failed to fetch image: ${imgResponse.statusText}`);
+    }
+    
+    // Get the image as arrayBuffer and convert to base64
+    const arrayBuffer = await imgResponse.arrayBuffer();
+    const base64Data = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    
+    const requestBody = {
+      contents: [
+        {
+          parts: [
+            {
+              text: "Extract all text from this image exactly as written. Do not correct spelling or grammar. Return only the extracted text without any additional commentary."
+            },
+            {
+              inline_data: {
+                mime_type: "image/jpeg",
+                data: base64Data
+              }
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.1, // Low temperature for more deterministic output
+        maxOutputTokens: 2048,
+      }
+    };
+
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Gemini API error: ${errorData.error?.message || 'Unknown error'}`);
+    }
+
+    const data = await response.json();
+    
+    // Extract the text from the response
+    const extractedText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No text extracted';
+    return extractedText;
+  } catch (error) {
+    console.error('Error in Gemini text extraction:', error);
+    throw new Error(`Failed to extract text with Gemini: ${error.message}`);
+  }
 }
 
 serve(async (req: Request): Promise<Response> => {
@@ -15,7 +78,7 @@ serve(async (req: Request): Promise<Response> => {
   }
   
   try {
-    console.log("OCR function called")
+    console.log("OCR function called with Gemini API")
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://pppteoxncuuraqjlrhir.supabase.co'
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -81,6 +144,54 @@ serve(async (req: Request): Promise<Response> => {
       throw new Error('No questions found for this examination')
     }
     
+    // Perform OCR using Gemini API
+    let extractedText;
+    try {
+      console.log(`Extracting text from image using Gemini API: ${imageUrl}`)
+      extractedText = await extractTextWithGemini(imageUrl);
+      console.log(`Text extraction successful, length: ${extractedText.length}`)
+    } catch (ocrError) {
+      console.error(`OCR processing failed: ${ocrError.message}`)
+      extractedText = `OCR Error: ${ocrError.message}`;
+
+      // Update status to error
+      await supabase
+        .from('answer_scripts')
+        .update({ processing_status: 'error' })
+        .eq('id', answerScriptId)
+        
+      throw ocrError;
+    }
+    
+    // Segment the extracted text for each question
+    let segmentedAnswers;
+    try {
+      // Simple segmentation logic - divide text evenly if needed
+      if (questions.length > 1) {
+        const paragraphs = extractedText.split(/\n\s*\n/);
+        
+        if (paragraphs.length >= questions.length) {
+          // Use paragraphs for segmentation
+          segmentedAnswers = paragraphs.slice(0, questions.length);
+        } else {
+          // Divide text evenly
+          const avgLength = Math.floor(extractedText.length / questions.length);
+          segmentedAnswers = Array(questions.length).fill('').map((_, i) => {
+            const start = i * avgLength;
+            const end = (i + 1 === questions.length) ? extractedText.length : (i + 1) * avgLength;
+            return extractedText.substring(start, end).trim();
+          });
+        }
+      } else {
+        // Only one question, use all text
+        segmentedAnswers = [extractedText];
+      }
+    } catch (segmentError) {
+      console.error(`Error segmenting text: ${segmentError.message}`);
+      // If segmentation fails, use the whole text for each question
+      segmentedAnswers = Array(questions.length).fill(extractedText);
+    }
+    
     // Set the script to OCR complete status
     await supabase
       .from('answer_scripts')
@@ -89,26 +200,18 @@ serve(async (req: Request): Promise<Response> => {
       })
       .eq('id', answerScriptId)
     
-    // Create placeholder answers for each question
-    const sampleTexts = [
-      "The three branches of government are the Executive, Legislative, and Judicial branches. The Executive branch is headed by the President and carries out laws. The Legislative branch makes laws and includes Congress. The Judicial branch evaluates laws and is led by the Supreme Court.",
-      "Photosynthesis is the process by which plants convert light energy into chemical energy. The equation is 6CO₂ + 6H₂O + light → C₆H₁₂O₆ + 6O₂. This process takes place in the chloroplasts of plant cells and is essential for producing oxygen.",
-      "The water cycle consists of evaporation, condensation, precipitation, and collection. Water evaporates from surfaces, forms clouds through condensation, falls as precipitation, and collects in bodies of water to restart the cycle.",
-      "Chemical reactions involve breaking bonds in reactants and forming new bonds to create products. The law of conservation of mass states that mass is neither created nor destroyed in a chemical reaction."
-    ];
-    
+    // Store the extracted text for each question
     for (let i = 0; i < questions.length; i++) {
       const question = questions[i];
-      // Choose a sample text based on question index, cycling through available ones
-      const sampleText = sampleTexts[i % sampleTexts.length];
-      // Add question-specific context
-      const placeholderText = `${sampleText} This answer addresses question ${i+1} about ${question.question_text.substring(0, 30)}...`;
+      const questionText = segmentedAnswers[i] || `No text extracted for question ${i+1}`;
       
-      const { error: answerInsertError } = await supabase.from('answers').upsert({
-        answer_script_id: answerScriptId,
-        question_id: question.id,
-        extracted_text: placeholderText
-      }, { onConflict: 'answer_script_id,question_id' });
+      const { error: answerInsertError } = await supabase
+        .from('answers')
+        .upsert({
+          answer_script_id: answerScriptId,
+          question_id: question.id,
+          extracted_text: questionText
+        }, { onConflict: 'answer_script_id,question_id' });
       
       if (answerInsertError) {
         console.error(`Error inserting answer for question ${question.id}:`, answerInsertError);
@@ -125,9 +228,8 @@ serve(async (req: Request): Promise<Response> => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Answer script processed successfully',
-        note: 'OCR placeholder responses created.',
-        extractedText: sampleTexts.join('\n\n---\n\n')
+        message: 'Answer script processed successfully with Gemini OCR',
+        extractedText: extractedText
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
