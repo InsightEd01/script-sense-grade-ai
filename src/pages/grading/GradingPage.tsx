@@ -19,7 +19,8 @@ import {
   Loader2, 
   Flag, 
   EyeIcon, 
-  Trash2 
+  Trash2,
+  Play
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Loading } from '@/components/ui/loading';
@@ -69,6 +70,8 @@ const GradingPage = () => {
   const [isProcessing, setIsProcessing] = useState<{ [key: string]: boolean }>({});
   const [extractedTexts, setExtractedTexts] = useState<{ [key: string]: string }>({});
   const [cancellingScripts, setCancellingScripts] = useState<{ [key: string]: boolean }>({});
+  const [gradingResults, setGradingResults] = useState<{ [key: string]: any }>({});
+  const [showResults, setShowResults] = useState<{ [key: string]: boolean }>({});
   const queryClient = useQueryClient();
 
   const searchParams = new URLSearchParams(location.search);
@@ -225,6 +228,20 @@ const GradingPage = () => {
       }
       
       refetchScripts();
+      
+      // Fetch grading results
+      const { data: answersData, error: answersError } = await supabase
+        .from('answers')
+        .select('*, question:questions(*)')
+        .eq('answer_script_id', scriptId);
+        
+      if (answersError) {
+        throw answersError;
+      }
+      
+      setGradingResults(prev => ({ ...prev, [scriptId]: answersData }));
+      setShowResults(prev => ({ ...prev, [scriptId]: true }));
+      
       toast({
         title: "Grading Complete",
         description: "The answer script has been graded successfully.",
@@ -239,6 +256,34 @@ const GradingPage = () => {
     } finally {
       setIsProcessing(prev => ({ ...prev, [scriptId]: false }));
     }
+  };
+
+  const handleStartGrading = async (scriptId: string) => {
+    try {
+      const script = answerScripts?.find(s => s.id === scriptId);
+      if (!script) {
+        throw new Error('Script not found');
+      }
+      
+      if (script.processing_status === 'uploaded') {
+        // If script is not processed yet, run OCR first
+        await handleProcessScript(scriptId);
+      }
+      
+      // Then grade the script
+      await handleGradeScript(scriptId);
+    } catch (error) {
+      console.error('Error starting grading process:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to complete the grading process. Please try again.",
+      });
+    }
+  };
+
+  const handleToggleResults = (scriptId: string) => {
+    setShowResults(prev => ({ ...prev, [scriptId]: !prev[scriptId] }));
   };
 
   const handleCancelProcessing = async (scriptId: string) => {
@@ -471,9 +516,28 @@ const GradingPage = () => {
                                 </p>
                               </div>
                               <div className="space-x-2">
+                                {/* Start Grading Button (New) */}
+                                {(script.processing_status === 'uploaded' || 
+                                  script.processing_status === 'ocr_complete') && (
+                                  <Button 
+                                    size="sm" 
+                                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                                    onClick={() => handleStartGrading(script.id)}
+                                    disabled={isProcessing[script.id]}
+                                  >
+                                    {isProcessing[script.id] ? (
+                                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Play className="mr-1 h-4 w-4" />
+                                    )}
+                                    Start Grading
+                                  </Button>
+                                )}
+                                
                                 {script.processing_status === 'uploaded' && (
                                   <Button 
                                     size="sm" 
+                                    variant="outline"
                                     onClick={() => handleProcessScript(script.id)}
                                     disabled={isProcessing[script.id]}
                                   >
@@ -482,9 +546,10 @@ const GradingPage = () => {
                                     ) : (
                                       <Clock className="mr-1 h-4 w-4" />
                                     )}
-                                    Process with OCR
+                                    Process OCR Only
                                   </Button>
                                 )}
+                                
                                 {script.processing_status === 'ocr_pending' && (
                                   <Button 
                                     variant="destructive"
@@ -535,6 +600,7 @@ const GradingPage = () => {
                               </div>
                             </div>
                             
+                            {/* OCR Results Section */}
                             {(script.processing_status === 'ocr_complete' || 
                               script.processing_status === 'grading_pending' || 
                               script.processing_status === 'grading_complete') && (
@@ -558,6 +624,71 @@ const GradingPage = () => {
                                       <div className="flex items-center justify-center p-4">
                                         <Loader2 className="h-4 w-4 animate-spin mr-2" />
                                         Loading extracted text...
+                                      </div>
+                                    )}
+                                  </CollapsibleContent>
+                                </Collapsible>
+                              </div>
+                            )}
+                            
+                            {/* Grading Results Section (New) */}
+                            {script.processing_status === 'grading_complete' && (
+                              <div className="mt-4">
+                                <Collapsible 
+                                  className="border rounded-md p-2 bg-green-50"
+                                  open={showResults[script.id]}
+                                  onOpenChange={(open) => setShowResults(prev => ({ ...prev, [script.id]: open }))}
+                                >
+                                  <CollapsibleTrigger asChild>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="flex items-center w-full justify-between text-green-700"
+                                    >
+                                      <span className="flex items-center">
+                                        <CheckCircle className="mr-1 h-4 w-4" />
+                                        View Grading Results
+                                      </span>
+                                      <span className="text-xs">(Click to {showResults[script.id] ? 'hide' : 'show'})</span>
+                                    </Button>
+                                  </CollapsibleTrigger>
+                                  <CollapsibleContent className="p-3 mt-2 bg-white rounded-md border">
+                                    {gradingResults[script.id] ? (
+                                      <div className="space-y-4">
+                                        <h4 className="font-medium text-center">Grading Results</h4>
+                                        <div className="space-y-3">
+                                          {gradingResults[script.id].map((answer: any) => (
+                                            <div key={answer.id} className="border-b pb-3">
+                                              <p className="font-medium">Question: {answer.question?.question_text}</p>
+                                              <p className="text-sm mt-1">
+                                                <span className="font-medium">Score:</span> {answer.assigned_grade} / {answer.question?.marks}
+                                              </p>
+                                              <p className="text-sm italic mt-1">"{answer.llm_explanation}"</p>
+                                              {answer.flags && answer.flags.length > 0 && (
+                                                <div className="mt-2 p-2 bg-red-50 rounded-md">
+                                                  <p className="text-xs font-medium text-red-700">Flags:</p>
+                                                  <ul className="text-xs text-red-600 list-disc list-inside">
+                                                    {answer.flags.map((flag: string, i: number) => (
+                                                      <li key={i}>{flag}</li>
+                                                    ))}
+                                                  </ul>
+                                                </div>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                        <div className="flex justify-between items-center pt-2 mt-2 border-t">
+                                          <p className="font-medium">Total Score:</p>
+                                          <p className="font-bold text-lg">
+                                            {gradingResults[script.id].reduce((total: number, answer: any) => 
+                                              total + (answer.assigned_grade || 0), 0).toFixed(1)} / {selectedExamination?.total_marks}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center justify-center p-4">
+                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                        Loading grading results...
                                       </div>
                                     )}
                                   </CollapsibleContent>
