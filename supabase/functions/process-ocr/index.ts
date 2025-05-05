@@ -15,6 +15,7 @@ const corsHeaders = {
 async function extractTextWithGemini(imageUrl: string): Promise<string> {
   try {
     // Fetch the image data
+    console.log(`Fetching image from URL: ${imageUrl}`);
     const imgResponse = await fetch(imageUrl);
     
     if (!imgResponse.ok) {
@@ -23,7 +24,21 @@ async function extractTextWithGemini(imageUrl: string): Promise<string> {
     
     // Get the image as arrayBuffer and convert to base64
     const arrayBuffer = await imgResponse.arrayBuffer();
-    const base64Data = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const bytes = new Uint8Array(arrayBuffer);
+    
+    // Validate image size
+    if (bytes.length > 20000000) { // ~20MB limit check
+      throw new Error('Image file size too large for Gemini API');
+    }
+    
+    // Convert to base64 safely
+    let base64Data = '';
+    for (let i = 0; i < bytes.length; i++) {
+      base64Data += String.fromCharCode(bytes[i]);
+    }
+    base64Data = btoa(base64Data);
+    
+    console.log(`Image converted to base64, length: ${base64Data.length}`);
     
     const requestBody = {
       contents: [
@@ -47,6 +62,7 @@ async function extractTextWithGemini(imageUrl: string): Promise<string> {
       }
     };
 
+    console.log(`Sending request to Gemini API`);
     const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
@@ -57,16 +73,18 @@ async function extractTextWithGemini(imageUrl: string): Promise<string> {
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(`Gemini API error: ${errorData.error?.message || 'Unknown error'}`);
+      throw new Error(`Gemini API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
     }
 
+    console.log(`Received response from Gemini API`);
     const data = await response.json();
     
     // Extract the text from the response
     const extractedText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No text extracted';
+    console.log(`Extracted text length: ${extractedText.length}`);
     return extractedText;
   } catch (error) {
-    console.error('Error in Gemini text extraction:', error);
+    console.error(`Error in Gemini text extraction: ${error.message}`);
     throw new Error(`Failed to extract text with Gemini: ${error.message}`);
   }
 }
@@ -120,11 +138,22 @@ serve(async (req: Request): Promise<Response> => {
       .from('answer_scripts')
       .select('*, examination:examinations(*)')
       .eq('id', answerScriptId)
-      .single()
+      .maybeSingle()
     
-    if (scriptError) {
-      console.error(`Failed to fetch answer script: ${scriptError.message}`)
-      throw new Error(`Failed to fetch answer script: ${scriptError.message}`)
+    if (scriptError || !scriptData) {
+      const errorMsg = `Failed to fetch answer script: ${scriptError?.message || 'No script found'}`
+      console.error(errorMsg)
+      
+      // Update status to error
+      await supabase
+        .from('answer_scripts')
+        .update({ processing_status: 'error' })
+        .eq('id', answerScriptId)
+        
+      return new Response(
+        JSON.stringify({ error: errorMsg }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
     
     // Get all questions for this examination
@@ -134,14 +163,20 @@ serve(async (req: Request): Promise<Response> => {
       .eq('examination_id', scriptData.examination_id)
       .order('created_at')
     
-    if (questionsError) {
-      console.error(`Failed to fetch questions: ${questionsError.message}`)
-      throw new Error(`Failed to fetch questions: ${questionsError.message}`)
-    }
-    
-    if (!questions || questions.length === 0) {
-      console.error('No questions found for this examination')
-      throw new Error('No questions found for this examination')
+    if (questionsError || !questions || questions.length === 0) {
+      const errorMsg = `Failed to fetch questions: ${questionsError?.message || 'No questions found for this examination'}`
+      console.error(errorMsg)
+      
+      // Update status to error
+      await supabase
+        .from('answer_scripts')
+        .update({ processing_status: 'error' })
+        .eq('id', answerScriptId)
+        
+      return new Response(
+        JSON.stringify({ error: errorMsg }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
     
     // Perform OCR using Gemini API
@@ -152,15 +187,17 @@ serve(async (req: Request): Promise<Response> => {
       console.log(`Text extraction successful, length: ${extractedText.length}`)
     } catch (ocrError) {
       console.error(`OCR processing failed: ${ocrError.message}`)
-      extractedText = `OCR Error: ${ocrError.message}`;
-
+      
       // Update status to error
       await supabase
         .from('answer_scripts')
         .update({ processing_status: 'error' })
         .eq('id', answerScriptId)
         
-      throw ocrError;
+      return new Response(
+        JSON.stringify({ error: `OCR processing failed: ${ocrError.message}` }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
     
     // Segment the extracted text for each question
@@ -215,7 +252,6 @@ serve(async (req: Request): Promise<Response> => {
       
       if (answerInsertError) {
         console.error(`Error inserting answer for question ${question.id}:`, answerInsertError);
-        throw new Error(`Error inserting answer: ${answerInsertError.message}`);
       }
     }
     

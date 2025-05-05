@@ -29,6 +29,12 @@ export async function performOCR(imageUrl: string): Promise<OCRResult> {
       throw new Error('Invalid image URL provided for OCR');
     }
 
+    // Check if the image is a large base64 string
+    if (imageUrl.startsWith('data:') && imageUrl.length > 20000000) {
+      console.warn('Image exceeds recommended size limit, attempting to resize');
+      imageUrl = await resizeImage(imageUrl);
+    }
+
     // Use retryOperation for better reliability
     return await retryOperation(() => extractTextWithGemini(imageUrl));
   } catch (error) {
@@ -91,6 +97,52 @@ export async function handleImagePreprocessing(imageData: string, options = { co
 
     img.onload = processImage;
     img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = imageData;
+  });
+}
+
+// New function to resize large images
+async function resizeImage(imageData: string, maxWidth = 1200, maxHeight = 1600): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        let width = img.width;
+        let height = img.height;
+        
+        // Calculate new dimensions maintaining aspect ratio
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round(height * maxWidth / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round(width * maxHeight / height);
+            height = maxHeight;
+          }
+        }
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          throw new Error('Failed to get canvas context');
+        }
+        
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Reduced quality for base64 to minimize data size
+        const resizedData = canvas.toDataURL('image/jpeg', 0.7);
+        console.log(`Image resized from ${img.width}x${img.height} to ${width}x${height}`);
+        resolve(resizedData);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    img.onerror = () => reject(new Error('Failed to load image for resizing'));
     img.src = imageData;
   });
 }
