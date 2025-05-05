@@ -1,6 +1,4 @@
-
-import { extractTextWithGemini } from '@/services/geminiOcrService';
-import { OCRResult } from '@/types/supabase';
+import { performEnhancedOCR } from '@/services/ocrService';
 
 async function retryOperation<T>(
   operation: () => Promise<T>,
@@ -21,22 +19,15 @@ async function retryOperation<T>(
   throw lastError;
 }
 
-export async function performOCR(imageUrl: string): Promise<OCRResult> {
+export async function performOCR(imageUrl: string): Promise<{ text: string; confidence: number }> {
   try {
-    console.log('Starting OCR process with Gemini for image:', imageUrl);
+    console.log('Starting OCR process for image:', imageUrl);
 
     if (!validateImage(imageUrl)) {
       throw new Error('Invalid image URL provided for OCR');
     }
 
-    // Check if the image is a large base64 string
-    if (imageUrl.startsWith('data:') && imageUrl.length > 20000000) {
-      console.warn('Image exceeds recommended size limit, attempting to resize');
-      imageUrl = await resizeImage(imageUrl);
-    }
-
-    // Use retryOperation for better reliability
-    return await retryOperation(() => extractTextWithGemini(imageUrl));
+    return await performEnhancedOCR(imageUrl);
   } catch (error) {
     console.error('OCR processing failed:', error);
     throw error;
@@ -54,7 +45,7 @@ function validateImage(imageUrl: string): boolean {
   return true;
 }
 
-// Image preprocessing for better OCR results
+// Renamed from preprocessImage to handleImagePreprocessing to avoid conflict with imported function
 export async function handleImagePreprocessing(imageData: string, options = { contrast: 1.5, threshold: 140 }): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -75,14 +66,21 @@ export async function handleImagePreprocessing(imageData: string, options = { co
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
 
-        // Apply image enhancements for better OCR
+        // Apply sharpening
+        const sharpenKernel = [
+          0, -1, 0,
+          -1, 5, -1,
+          0, -1, 0
+        ];
+        
+        // Apply grayscale and contrast
         for (let i = 0; i < data.length; i += 4) {
           const avg = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
           const adjusted = options.contrast * (avg - 128) + 128;
           data[i] = data[i + 1] = data[i + 2] = adjusted;
         }
 
-        // Apply threshold for cleaner text
+        // Apply threshold
         for (let i = 0; i < data.length; i += 4) {
           const val = data[i] > options.threshold ? 255 : 0;
           data[i] = data[i + 1] = data[i + 2] = val;
@@ -97,52 +95,6 @@ export async function handleImagePreprocessing(imageData: string, options = { co
 
     img.onload = processImage;
     img.onerror = () => reject(new Error('Failed to load image'));
-    img.src = imageData;
-  });
-}
-
-// New function to resize large images
-async function resizeImage(imageData: string, maxWidth = 1200, maxHeight = 1600): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      try {
-        let width = img.width;
-        let height = img.height;
-        
-        // Calculate new dimensions maintaining aspect ratio
-        if (width > height) {
-          if (width > maxWidth) {
-            height = Math.round(height * maxWidth / width);
-            width = maxWidth;
-          }
-        } else {
-          if (height > maxHeight) {
-            width = Math.round(width * maxHeight / height);
-            height = maxHeight;
-          }
-        }
-        
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        
-        if (!ctx) {
-          throw new Error('Failed to get canvas context');
-        }
-        
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        // Reduced quality for base64 to minimize data size
-        const resizedData = canvas.toDataURL('image/jpeg', 0.7);
-        console.log(`Image resized from ${img.width}x${img.height} to ${width}x${height}`);
-        resolve(resizedData);
-      } catch (error) {
-        reject(error);
-      }
-    };
-    img.onerror = () => reject(new Error('Failed to load image for resizing'));
     img.src = imageData;
   });
 }
