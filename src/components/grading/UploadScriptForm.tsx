@@ -92,13 +92,15 @@ export function UploadScriptForm({ examinationId, students, onSuccess }: UploadS
         });
       }
       
-      // Upload the file with progress tracking
+      // Upload the file with progress tracking - Fixed onUploadProgress using the new API
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('answer_scripts')
         .upload(filePath, imageFile, {
           upsert: true,
-          onUploadProgress: (progress) => {
-            setUploadProgress(Math.round((progress.loaded / progress.total) * 100));
+          // The new Supabase Storage API uses an event-based progress tracker
+          onUploadProgress: (event) => {
+            const progress = event.loaded / event.total;
+            setUploadProgress(Math.round(progress * 100));
           },
         });
       
