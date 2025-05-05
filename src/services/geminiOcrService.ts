@@ -12,7 +12,7 @@ export async function extractTextWithGemini(imageBase64: string): Promise<OCRRes
       : imageBase64;
     
     // Ensure we don't exceed maximum payload size
-    if (base64Data.length > 20000000) { // ~20MB limit check
+    if (base64Data.length > 10000000) { // Reduced from 20MB to 10MB
       throw new Error('Image file size too large for Gemini API');
     }
     
@@ -47,8 +47,16 @@ export async function extractTextWithGemini(imageBase64: string): Promise<OCRRes
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Gemini API error: ${errorData.error?.message || 'Unknown error'}`);
+      let errorMessage = `Gemini API error: Status ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage += ` - ${errorData.error?.message || 'Unknown error'}`;
+      } catch (e) {
+        // If we can't parse JSON, use text
+        const errorText = await response.text();
+        errorMessage += ` - ${errorText.substring(0, 100)}`;
+      }
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();

@@ -27,7 +27,7 @@ async function extractTextWithGemini(imageUrl: string): Promise<string> {
     const bytes = new Uint8Array(arrayBuffer);
     
     // Validate image size
-    if (bytes.length > 20000000) { // ~20MB limit check
+    if (bytes.length > 10000000) { // Reduced from 20MB to 10MB to avoid potential issues
       throw new Error('Image file size too large for Gemini API');
     }
     
@@ -72,8 +72,15 @@ async function extractTextWithGemini(imageUrl: string): Promise<string> {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Gemini API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+      const errorText = await response.text();
+      let errorMessage = `Gemini API error: ${response.status}`;
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage += ` - ${errorData.error?.message || 'Unknown error'}`;
+      } catch (e) {
+        errorMessage += ` - ${errorText.substring(0, 100)}`;
+      }
+      throw new Error(errorMessage);
     }
 
     console.log(`Received response from Gemini API`);
@@ -85,7 +92,7 @@ async function extractTextWithGemini(imageUrl: string): Promise<string> {
     return extractedText;
   } catch (error) {
     console.error(`Error in Gemini text extraction: ${error.message}`);
-    throw new Error(`Failed to extract text with Gemini: ${error.message}`);
+    throw error;
   }
 }
 
@@ -116,7 +123,7 @@ serve(async (req: Request): Promise<Response> => {
       )
     }
     
-    const { answerScriptId, imageUrl } = requestData;
+    const { answerScriptId, imageUrl, autoGrade = false } = requestData;
     
     if (!answerScriptId || !imageUrl) {
       return new Response(
@@ -125,13 +132,18 @@ serve(async (req: Request): Promise<Response> => {
       )
     }
     
-    console.log(`Processing script ${answerScriptId} with image ${imageUrl}`)
+    console.log(`Processing script ${answerScriptId} with image ${imageUrl}, autoGrade: ${autoGrade}`)
     
     // Update script status to OCR pending
-    await supabase
-      .from('answer_scripts')
-      .update({ processing_status: 'ocr_pending' })
-      .eq('id', answerScriptId)
+    try {
+      await supabase
+        .from('answer_scripts')
+        .update({ processing_status: 'ocr_pending' })
+        .eq('id', answerScriptId)
+    } catch (updateError) {
+      console.error(`Error updating script status to ocr_pending: ${updateError.message}`);
+      // Continue processing despite the error
+    }
     
     // Get the examination details for this script
     const { data: scriptData, error: scriptError } = await supabase
@@ -144,11 +156,15 @@ serve(async (req: Request): Promise<Response> => {
       const errorMsg = `Failed to fetch answer script: ${scriptError?.message || 'No script found'}`
       console.error(errorMsg)
       
-      // Update status to error
-      await supabase
-        .from('answer_scripts')
-        .update({ processing_status: 'error' })
-        .eq('id', answerScriptId)
+      try {
+        // Update status to error
+        await supabase
+          .from('answer_scripts')
+          .update({ processing_status: 'error' })
+          .eq('id', answerScriptId)
+      } catch (updateError) {
+        console.error(`Error updating script status to error: ${updateError.message}`);
+      }
         
       return new Response(
         JSON.stringify({ error: errorMsg }),
@@ -163,20 +179,16 @@ serve(async (req: Request): Promise<Response> => {
       .eq('examination_id', scriptData.examination_id)
       .order('created_at')
     
-    if (questionsError || !questions || questions.length === 0) {
-      const errorMsg = `Failed to fetch questions: ${questionsError?.message || 'No questions found for this examination'}`
-      console.error(errorMsg)
+    if (questionsError) {
+      console.error(`Error fetching questions: ${questionsError.message}`);
+    }
+    
+    if (!questions || questions.length === 0) {
+      const warningMsg = `No questions found for this examination: ${scriptData.examination_id}`;
+      console.warn(warningMsg);
       
-      // Update status to error
-      await supabase
-        .from('answer_scripts')
-        .update({ processing_status: 'error' })
-        .eq('id', answerScriptId)
-        
-      return new Response(
-        JSON.stringify({ error: errorMsg }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      // We'll continue with OCR but won't be able to segment properly
+      // This is a recoverable condition, not a fatal error
     }
     
     // Perform OCR using Gemini API
@@ -188,11 +200,15 @@ serve(async (req: Request): Promise<Response> => {
     } catch (ocrError) {
       console.error(`OCR processing failed: ${ocrError.message}`)
       
-      // Update status to error
-      await supabase
-        .from('answer_scripts')
-        .update({ processing_status: 'error' })
-        .eq('id', answerScriptId)
+      try {
+        // Update status to error
+        await supabase
+          .from('answer_scripts')
+          .update({ processing_status: 'error' })
+          .eq('id', answerScriptId)
+      } catch (updateError) {
+        console.error(`Error updating script status to error: ${updateError.message}`);
+      }
         
       return new Response(
         JSON.stringify({ error: `OCR processing failed: ${ocrError.message}` }),
@@ -200,66 +216,112 @@ serve(async (req: Request): Promise<Response> => {
       )
     }
     
-    // Segment the extracted text for each question
-    let segmentedAnswers;
+    // Set the script to OCR complete status
     try {
-      // Simple segmentation logic - divide text evenly if needed
-      if (questions.length > 1) {
-        const paragraphs = extractedText.split(/\n\s*\n/);
-        
-        if (paragraphs.length >= questions.length) {
-          // Use paragraphs for segmentation
-          segmentedAnswers = paragraphs.slice(0, questions.length);
-        } else {
-          // Divide text evenly
-          const avgLength = Math.floor(extractedText.length / questions.length);
-          segmentedAnswers = Array(questions.length).fill('').map((_, i) => {
-            const start = i * avgLength;
-            const end = (i + 1 === questions.length) ? extractedText.length : (i + 1) * avgLength;
-            return extractedText.substring(start, end).trim();
-          });
-        }
-      } else {
-        // Only one question, use all text
-        segmentedAnswers = [extractedText];
-      }
-    } catch (segmentError) {
-      console.error(`Error segmenting text: ${segmentError.message}`);
-      // If segmentation fails, use the whole text for each question
-      segmentedAnswers = Array(questions.length).fill(extractedText);
+      await supabase
+        .from('answer_scripts')
+        .update({ 
+          processing_status: 'ocr_complete'
+        })
+        .eq('id', answerScriptId)
+    } catch (updateError) {
+      console.error(`Error updating script status to ocr_complete: ${updateError.message}`);
+      // Continue despite error
     }
     
-    // Set the script to OCR complete status
-    await supabase
-      .from('answer_scripts')
-      .update({ 
-        processing_status: 'ocr_complete'
-      })
-      .eq('id', answerScriptId)
-    
-    // Store the extracted text for each question
-    for (let i = 0; i < questions.length; i++) {
-      const question = questions[i];
-      const questionText = segmentedAnswers[i] || `No text extracted for question ${i+1}`;
-      
-      const { error: answerInsertError } = await supabase
-        .from('answers')
-        .upsert({
-          answer_script_id: answerScriptId,
-          question_id: question.id,
-          extracted_text: questionText
-        }, { onConflict: 'answer_script_id,question_id' });
-      
-      if (answerInsertError) {
-        console.error(`Error inserting answer for question ${question.id}:`, answerInsertError);
+    if (questions && questions.length > 0) {
+      // Segment the extracted text for each question
+      let segmentedAnswers;
+      try {
+        // Simple segmentation logic - divide text evenly if needed
+        if (questions.length > 1) {
+          const paragraphs = extractedText.split(/\n\s*\n/);
+          
+          if (paragraphs.length >= questions.length) {
+            // Use paragraphs for segmentation
+            segmentedAnswers = paragraphs.slice(0, questions.length);
+          } else {
+            // Divide text evenly
+            const avgLength = Math.floor(extractedText.length / questions.length);
+            segmentedAnswers = Array(questions.length).fill('').map((_, i) => {
+              const start = i * avgLength;
+              const end = (i + 1 === questions.length) ? extractedText.length : (i + 1) * avgLength;
+              return extractedText.substring(start, end).trim();
+            });
+          }
+        } else {
+          // Only one question, use all text
+          segmentedAnswers = [extractedText];
+        }
+        
+        // Store the extracted text for each question
+        for (let i = 0; i < questions.length; i++) {
+          const question = questions[i];
+          const questionText = segmentedAnswers[i] || `No text extracted for question ${i+1}`;
+          
+          try {
+            // Check if answer already exists and create or update accordingly
+            const { data: existingAnswer } = await supabase
+              .from('answers')
+              .select('id')
+              .eq('answer_script_id', answerScriptId)
+              .eq('question_id', question.id)
+              .maybeSingle();
+              
+            if (existingAnswer) {
+              // Update existing answer
+              await supabase
+                .from('answers')
+                .update({ extracted_text: questionText })
+                .eq('id', existingAnswer.id);
+            } else {
+              // Insert new answer
+              await supabase
+                .from('answers')
+                .insert({
+                  answer_script_id: answerScriptId,
+                  question_id: question.id,
+                  extracted_text: questionText
+                });
+            }
+          } catch (answerError) {
+            console.error(`Error saving answer for question ${question.id}:`, answerError);
+          }
+        }
+      } catch (segmentError) {
+        console.error(`Error segmenting text: ${segmentError.message}`);
+        // If segmentation fails, we'll still continue processing
       }
     }
     
     // Update script status to grading pending
-    await supabase
-      .from('answer_scripts')
-      .update({ processing_status: 'grading_pending' })
-      .eq('id', answerScriptId)
+    try {
+      await supabase
+        .from('answer_scripts')
+        .update({ processing_status: 'grading_pending' })
+        .eq('id', answerScriptId)
+    } catch (updateError) {
+      console.error(`Error updating script status to grading_pending: ${updateError.message}`);
+      // Continue despite error
+    }
+    
+    // If autoGrade is true, trigger grading
+    if (autoGrade && questions && questions.length > 0) {
+      try {
+        console.log(`Auto-triggering grading for script ${answerScriptId}`);
+        const { data: gradingData, error: gradingError } = await supabase.functions.invoke('grade-answers', {
+          body: { answerScriptId: answerScriptId }
+        });
+        
+        if (gradingError) {
+          console.error(`Error auto-grading: ${gradingError.message}`);
+        } else {
+          console.log(`Auto-grading complete for script ${answerScriptId}: ${JSON.stringify(gradingData)}`);
+        }
+      } catch (gradingErr) {
+        console.error(`Exception during auto-grading: ${gradingErr.message}`);
+      }
+    }
     
     return new Response(
       JSON.stringify({ 
@@ -276,12 +338,11 @@ serve(async (req: Request): Promise<Response> => {
     try {
       let answerScriptId = null;
       try {
-        const requestData = await req.json();
+        const requestData = await req.clone().json();
         answerScriptId = requestData.answerScriptId;
       } catch (e) {
-        // Request body was already consumed
-        const url = new URL(req.url);
-        answerScriptId = url.searchParams.get('answerScriptId');
+        // Request body was already consumed or invalid
+        console.error('Could not get answerScriptId from request:', e);
       }
       
       if (answerScriptId) {

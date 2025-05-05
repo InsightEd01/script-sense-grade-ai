@@ -30,7 +30,7 @@ export async function performOCR(imageUrl: string): Promise<OCRResult> {
     }
 
     // Check if the image is a large base64 string
-    if (imageUrl.startsWith('data:') && imageUrl.length > 20000000) {
+    if (imageUrl.startsWith('data:') && imageUrl.length > 10000000) { // Reduced from 20MB to 10MB
       console.warn('Image exceeds recommended size limit, attempting to resize');
       imageUrl = await resizeImage(imageUrl);
     }
@@ -149,6 +149,12 @@ async function resizeImage(imageData: string, maxWidth = 1200, maxHeight = 1600)
 
 export async function segmentAnswers(extractedText: string, questionCount: number): Promise<string[]> {
   console.log('Segmenting answers from text, question count:', questionCount);
+  
+  if (!extractedText || extractedText.trim() === '') {
+    console.warn('Empty text provided for segmentation');
+    return Array(questionCount).fill('No text extracted');
+  }
+  
   console.log('Sample of extracted text:', extractedText.substring(0, 100) + '...');
   
   // Basic segmentation: Try to identify question markers
@@ -214,5 +220,10 @@ export async function segmentAnswers(extractedText: string, questionCount: numbe
     }
   }
   
-  return segmentedAnswers;
+  // Ensure we have exactly the right number of answers
+  while (segmentedAnswers.length < questionCount) {
+    segmentedAnswers.push('No text extracted for this question');
+  }
+  
+  return segmentedAnswers.slice(0, questionCount);
 }
