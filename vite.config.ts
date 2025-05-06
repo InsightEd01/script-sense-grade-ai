@@ -21,5 +21,14 @@ export default defineConfig(({ mode }) => ({
   },
   define: {
     global: 'globalThis',
+    'process.env': '{}',
+    'process.version': '"v16.0.0"',
   },
+  optimizeDeps: {
+    esbuildOptions: {
+      define: {
+        global: 'globalThis'
+      }
+    }
+  }
 }));

@@ -1,6 +1,4 @@
 import { OCRResult } from '@/types/supabase';
-import fetch from 'node-fetch'; // Ensure this is installed and imported
-import { Buffer } from 'buffer';
 
 const GEMINI_API_KEY = "AIzaSyDCq_tAdO5lqgsU5wlYtjhI0vpdk_jKr28";
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent";
@@ -31,8 +29,10 @@ export async function extractTextWithGemini(imageBase64OrUrl: string): Promise<O
       if (!response.ok) {
         throw new Error(`Failed to fetch image from URL: ${response.statusText}`);
       }
-      const buffer = await response.arrayBuffer();
-      base64Data = Buffer.from(buffer).toString('base64');
+      const arrayBuffer = await response.arrayBuffer();
+      base64Data = btoa(
+        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+      );
     } else {
       // Clean the base64 data if it includes the data URL prefix
       base64Data = imageBase64OrUrl.includes('base64,') 
