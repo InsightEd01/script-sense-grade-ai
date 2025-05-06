@@ -1,8 +1,25 @@
 import { OCRResult } from '@/types/supabase';
 import fetch from 'node-fetch'; // Ensure this is installed and imported
+import { Buffer } from 'buffer';
 
 const GEMINI_API_KEY = "AIzaSyDCq_tAdO5lqgsU5wlYtjhI0vpdk_jKr28";
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent";
+
+interface GeminiApiResponse {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        text?: string;
+      }>;
+    };
+  }>;
+}
+
+interface GeminiApiError {
+  error?: {
+    message?: string;
+  };
+}
 
 export async function extractTextWithGemini(imageBase64OrUrl: string): Promise<OCRResult> {
   try {
@@ -62,7 +79,7 @@ export async function extractTextWithGemini(imageBase64OrUrl: string): Promise<O
     if (!response.ok) {
       let errorMessage = `Gemini API error: Status ${response.status}`;
       try {
-        const errorData = await response.json();
+        const errorData: GeminiApiError = await response.json();
         errorMessage += ` - ${errorData.error?.message || 'Unknown error'}`;
       } catch (e) {
         // If we can't parse JSON, use text
@@ -72,7 +89,7 @@ export async function extractTextWithGemini(imageBase64OrUrl: string): Promise<O
       throw new Error(errorMessage);
     }
 
-    const data = await response.json();
+    const data: GeminiApiResponse = await response.json();
 
     // Extract the text from the response
     const extractedText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No text extracted';
