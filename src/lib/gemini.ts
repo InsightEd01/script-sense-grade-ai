@@ -60,52 +60,34 @@ export async function gradeStudentAnswer(
   }
 
   const prompt = `
-    Objective: Grade a handwritten exam answer using structured criteria while allowing for natural variations in expression.
+    Objective: Evaluate a student's handwritten answer against a model answer, focusing on understanding and core concepts rather than exact wording.
     Subject: ${subject}
     Question: "${question}"
-    Maximum Marks: ${maxMarks}
-    Model Answer Key Concepts:
-    ${modelAnswer}
-
-    Student's Answer (from OCR): 
-    ${studentAnswer}
+    Maximum Marks for this Question: ${maxMarks}
+    Required Semantic Similarity Tolerance: ${tolerance} (Used as a general guide for conceptual alignment rather than strict matching)
+    Model Answer: "${modelAnswer}"
+    Student's Answer (from OCR): "${studentAnswer}"
     ${customGradingInfo}
     
-    Grading Context: This is a handwritten exam response processed through OCR. Expect and allow for:
-    - Different ways of expressing the same concept
-    - Informal language that demonstrates understanding
-    - Minor spelling/grammar variations
-    - OCR transcription imperfections
-    
-    Scoring Criteria (Total: ${maxMarks} marks):
-    1. Core Concept Coverage (${(maxMarks * 0.6).toFixed(1)} marks):
-       - Identify the main concepts from the model answer
-       - Award marks for each core concept that is clearly demonstrated, even if expressed differently
-       - Partial marks for partially demonstrated concepts
-       
-    2. Understanding & Application (${(maxMarks * 0.4).toFixed(1)} marks):
-       - Logical flow and connection between concepts
-       - Appropriate use of subject terminology
-       - Application of concepts to answer the specific question
-       
-    Tolerance Factor (${tolerance}):
-    - Use this as a minimum threshold for accepting alternative explanations
-    - Higher tolerance (e.g. 0.8-1.0) means accept broader range of expressions
-    - Lower tolerance (e.g. 0.1-0.3) requires closer alignment to key terms
+    Grading Context: This is a handwritten exam response that has been processed through OCR. Expect and allow for:
+    - Natural variations in wording and expression
+    - Minor spelling or grammar issues
+    - Different ways of explaining the same concept
+    - Informal language while conveying correct understanding
     
     Instructions:
-    1. First identify which core concepts from the model answer are present in the student's response
-    2. For each concept, assess if it's fully, partially, or not demonstrated
-    3. Evaluate the overall understanding shown
-    4. Calculate component scores and sum for final score
-    5. Provide a brief explanation listing key concepts found/missing
-    6. Only flag for misconduct if there's clear evidence of external copying or completely off-topic response
+    1. Focus on the core concepts and overall understanding demonstrated in the student's answer.
+    2. Look for evidence that the student grasps the fundamental ideas, even if expressed differently from the model answer.
+    3. Consider partial credit for partially correct understanding.
+    4. Assign a score from 0 to ${maxMarks}. Award full marks if the core concepts are present and understanding is demonstrated, even if the wording differs significantly.
+    5. Provide a brief explanation focusing on the demonstrated understanding and any missing key concepts.
+    6. Only flag for misconduct if there is clear evidence of exact copying from unseen sources (not just similarity to the model answer) or completely off-topic responses.
 
-    Required Output Format (JSON):
+    Output Format (JSON):
     {
-      "score": <total_score as float>,
-      "explanation": "<brief explanation listing key concepts found/missing>",
-      "flags": ["<only for clear misconduct, not wording similarities>"]
+      "score": <assigned score (float)>,
+      "explanation": "<brief explanation focusing on understanding>",
+      "flags": ["<only include for clear misconduct, not for wording similarities>"]
     }
   `;
 
