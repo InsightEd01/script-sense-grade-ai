@@ -99,7 +99,7 @@ serve(async (req: Request): Promise<Response> => {
       // Find the script with the lowest script_number (usually 1) to store the combined text
       const { data: firstScript } = await supabase
         .from('answer_scripts')
-        .select('id')
+        .select('id, script_number')
         .eq('student_id', scriptData.student_id)
         .eq('examination_id', scriptData.examination_id)
         .order('script_number')
@@ -108,7 +108,7 @@ serve(async (req: Request): Promise<Response> => {
         
       if (firstScript && firstScript.id !== answerScriptId) {
         console.log(`This is not the first script. First script ID is ${firstScript.id}`);
-        // Store full extracted text in the current script
+        // Store full extracted text in the current script only
         await supabase
           .from('answer_scripts')
           .update({ 
@@ -133,7 +133,7 @@ serve(async (req: Request): Promise<Response> => {
       }
     }
     
-    // Store full extracted text in the answer_script
+    // Store full extracted text in the answer_script if not already done
     try {
       await supabase
         .from('answer_scripts')

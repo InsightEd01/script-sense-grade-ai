@@ -11,35 +11,44 @@ export type Database = {
     Tables: {
       answer_scripts: {
         Row: {
+          combined_extracted_text: string | null
           custom_instructions: string | null
           enable_misconduct_detection: boolean | null
           examination_id: string
           flags: string[] | null
+          full_extracted_text: string | null
           id: string
           processing_status: string
           script_image_url: string
+          script_number: number | null
           student_id: string
           upload_timestamp: string
         }
         Insert: {
+          combined_extracted_text?: string | null
           custom_instructions?: string | null
           enable_misconduct_detection?: boolean | null
           examination_id: string
           flags?: string[] | null
+          full_extracted_text?: string | null
           id?: string
           processing_status: string
           script_image_url: string
+          script_number?: number | null
           student_id: string
           upload_timestamp?: string
         }
         Update: {
+          combined_extracted_text?: string | null
           custom_instructions?: string | null
           enable_misconduct_detection?: boolean | null
           examination_id?: string
           flags?: string[] | null
+          full_extracted_text?: string | null
           id?: string
           processing_status?: string
           script_image_url?: string
+          script_number?: number | null
           student_id?: string
           upload_timestamp?: string
         }

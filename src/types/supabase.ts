@@ -1,3 +1,4 @@
+
 export interface Teacher {
   id: string;
   name: string;
@@ -51,6 +52,9 @@ export interface AnswerScript {
   custom_instructions?: string;
   enable_misconduct_detection?: boolean;
   flags?: string[];
+  script_number?: number;
+  full_extracted_text?: string;
+  combined_extracted_text?: string;
 }
 
 export interface Answer {

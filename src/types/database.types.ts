@@ -53,6 +53,12 @@ export interface AnswerScript {
   upload_timestamp: string;
   processing_status: 'uploaded' | 'ocr_pending' | 'ocr_complete' | 'grading_pending' | 'grading_complete' | 'error';
   student?: Student;
+  script_number?: number;
+  full_extracted_text?: string;
+  combined_extracted_text?: string;
+  custom_instructions?: string;
+  enable_misconduct_detection?: boolean;
+  flags?: string[];
 }
 
 export interface Answer {
@@ -66,9 +72,11 @@ export interface Answer {
   manual_grade?: number;
   override_justification?: string;
   question?: Question;
+  flags?: string[];
 }
 
 export interface GradingResult {
   score: number;
   explanation: string;
+  flags?: string[];
 }
