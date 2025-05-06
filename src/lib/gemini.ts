@@ -1,4 +1,3 @@
-
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const GEMINI_API_KEY = 'AIzaSyBBe5atwksC1l0hXhCudRs6oYIcu7ZdxhA';
@@ -61,27 +60,34 @@ export async function gradeStudentAnswer(
   }
 
   const prompt = `
-    Objective: Evaluate a student's handwritten answer against a model answer based on semantic meaning and assign a score.
+    Objective: Evaluate a student's handwritten answer against a model answer, focusing on understanding and core concepts rather than exact wording.
     Subject: ${subject}
     Question: "${question}"
     Maximum Marks for this Question: ${maxMarks}
-    Required Semantic Similarity Tolerance: ${tolerance} (A higher value means the student's answer must be closer in meaning to the model answer).
+    Required Semantic Similarity Tolerance: ${tolerance} (Used as a general guide for conceptual alignment rather than strict matching)
     Model Answer: "${modelAnswer}"
     Student's Answer (from OCR): "${studentAnswer}"
     ${customGradingInfo}
+    
+    Grading Context: This is a handwritten exam response that has been processed through OCR. Expect and allow for:
+    - Natural variations in wording and expression
+    - Minor spelling or grammar issues
+    - Different ways of explaining the same concept
+    - Informal language while conveying correct understanding
+    
     Instructions:
-    1. Analyze the semantic meaning and key concepts present in the "Student's Answer".
-    2. Compare this meaning to the "Model Answer".
-    3. Determine the degree of semantic alignment between the student's answer and the model answer.
-    4. Assign a score from 0 to ${maxMarks} based on this alignment, considering the "Required Semantic Similarity Tolerance". A score of ${maxMarks} should be given if the alignment meets or exceeds the tolerance threshold. Award partial credit proportionately if key concepts are partially present or alignment is close but below the threshold.
-    5. Provide a brief, one-sentence explanation for the assigned score, mentioning key alignments or deviations.
-    6. Look for potential academic misconduct like cheating or plagiarism signs, and add any flags to an array.
+    1. Focus on the core concepts and overall understanding demonstrated in the student's answer.
+    2. Look for evidence that the student grasps the fundamental ideas, even if expressed differently from the model answer.
+    3. Consider partial credit for partially correct understanding.
+    4. Assign a score from 0 to ${maxMarks}. Award full marks if the core concepts are present and understanding is demonstrated, even if the wording differs significantly.
+    5. Provide a brief explanation focusing on the demonstrated understanding and any missing key concepts.
+    6. Only flag for misconduct if there is clear evidence of exact copying from unseen sources (not just similarity to the model answer) or completely off-topic responses.
 
     Output Format (JSON):
     {
       "score": <assigned score (float)>,
-      "explanation": "<brief explanation (string)>",
-      "flags": ["<potential issue or warning>"]
+      "explanation": "<brief explanation focusing on understanding>",
+      "flags": ["<only include for clear misconduct, not for wording similarities>"]
     }
   `;
 
@@ -95,7 +101,6 @@ export async function gradeStudentAnswer(
     const resultText = response.text().trim();
     
     try {
-      // Parse the JSON from the response text
       const cleanedJson = resultText.replace(/^```json\n|\n```$/g, '');
       console.log('Parsed grading result successfully');
       return JSON.parse(cleanedJson);
