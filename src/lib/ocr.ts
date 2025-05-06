@@ -1,6 +1,6 @@
-
 import { extractTextWithGemini } from '@/services/geminiOcrService';
 import { OCRResult } from '@/types/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 async function retryOperation<T>(
   operation: () => Promise<T>,
@@ -30,15 +30,60 @@ export async function performOCR(imageUrl: string): Promise<OCRResult> {
     }
 
     // Check if the image is a large base64 string
-    if (imageUrl.startsWith('data:') && imageUrl.length > 10000000) { // Reduced from 20MB to 10MB
+    if (imageUrl.startsWith('data:') && imageUrl.length > 10000000) { // 10MB limit
       console.warn('Image exceeds recommended size limit, attempting to resize');
       imageUrl = await resizeImage(imageUrl);
     }
 
     // Use retryOperation for better reliability
-    return await retryOperation(() => extractTextWithGemini(imageUrl));
+    const ocrResult = await retryOperation(() => extractTextWithGemini(imageUrl));
+    console.log('OCR completed successfully with result:', ocrResult.text.substring(0, 100) + '...');
+    return ocrResult;
   } catch (error) {
     console.error('OCR processing failed:', error);
+    throw error;
+  }
+}
+
+// Process an answer script with OCR and update the database
+export async function processAnswerScript(answerScriptId: string, imageUrl: string, autoGrade: boolean = false): Promise<void> {
+  try {
+    console.log(`Processing answer script ${answerScriptId} with OCR`);
+    
+    // Update status to OCR pending
+    await supabase
+      .from('answer_scripts')
+      .update({ processing_status: 'ocr_pending' })
+      .eq('id', answerScriptId);
+      
+    // Perform OCR
+    const ocrResult = await performOCR(imageUrl);
+    
+    // Call the process-ocr edge function with the extracted text
+    const { data, error } = await supabase.functions.invoke('process-ocr', {
+      body: { 
+        answerScriptId,
+        extractedText: ocrResult.text,
+        autoGrade 
+      }
+    });
+    
+    if (error) {
+      console.error('Error calling process-ocr function:', error);
+      throw new Error(`Failed to process OCR result: ${error.message}`);
+    }
+    
+    console.log('Successfully processed answer script:', data);
+    return data;
+  } catch (error) {
+    console.error('Error in processAnswerScript:', error);
+    
+    // Update status to error
+    await supabase
+      .from('answer_scripts')
+      .update({ processing_status: 'error' })
+      .eq('id', answerScriptId);
+      
     throw error;
   }
 }

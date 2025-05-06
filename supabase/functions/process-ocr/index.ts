@@ -3,97 +3,9 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
 
-const GEMINI_API_KEY = "AIzaSyDCq_tAdO5lqgsU5wlYtjhI0vpdk_jKr28";
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent";
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-// Function to perform OCR using the Gemini API
-async function extractTextWithGemini(imageUrl: string): Promise<string> {
-  try {
-    // Fetch the image data
-    console.log(`Fetching image from URL: ${imageUrl}`);
-    const imgResponse = await fetch(imageUrl);
-    
-    if (!imgResponse.ok) {
-      throw new Error(`Failed to fetch image: ${imgResponse.statusText}`);
-    }
-    
-    // Get the image as arrayBuffer and convert to base64
-    const arrayBuffer = await imgResponse.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    
-    // Validate image size
-    if (bytes.length > 10000000) { // Reduced from 20MB to 10MB to avoid potential issues
-      throw new Error('Image file size too large for Gemini API');
-    }
-    
-    // Convert to base64 safely
-    let base64Data = '';
-    for (let i = 0; i < bytes.length; i++) {
-      base64Data += String.fromCharCode(bytes[i]);
-    }
-    base64Data = btoa(base64Data);
-    
-    console.log(`Image converted to base64, length: ${base64Data.length}`);
-    
-    const requestBody = {
-      contents: [
-        {
-          parts: [
-            {
-              text: "Extract all text from this image exactly as written. Do not correct spelling or grammar. Return only the extracted text without any additional commentary."
-            },
-            {
-              inline_data: {
-                mime_type: "image/jpeg",
-                data: base64Data
-              }
-            }
-          ]
-        }
-      ],
-      generationConfig: {
-        temperature: 0.1, // Low temperature for more deterministic output
-        maxOutputTokens: 2048,
-      }
-    };
-
-    console.log(`Sending request to Gemini API`);
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorMessage = `Gemini API error: ${response.status}`;
-      try {
-        const errorData = JSON.parse(errorText);
-        errorMessage += ` - ${errorData.error?.message || 'Unknown error'}`;
-      } catch (e) {
-        errorMessage += ` - ${errorText.substring(0, 100)}`;
-      }
-      throw new Error(errorMessage);
-    }
-
-    console.log(`Received response from Gemini API`);
-    const data = await response.json();
-    
-    // Extract the text from the response
-    const extractedText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No text extracted';
-    console.log(`Extracted text length: ${extractedText.length}`);
-    return extractedText;
-  } catch (error) {
-    console.error(`Error in Gemini text extraction: ${error.message}`);
-    throw error;
-  }
 }
 
 serve(async (req: Request): Promise<Response> => {
@@ -103,7 +15,7 @@ serve(async (req: Request): Promise<Response> => {
   }
   
   try {
-    console.log("OCR function called with Gemini API")
+    console.log("OCR function called to process extracted text")
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://pppteoxncuuraqjlrhir.supabase.co'
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -123,27 +35,16 @@ serve(async (req: Request): Promise<Response> => {
       )
     }
     
-    const { answerScriptId, imageUrl, autoGrade = false } = requestData;
+    const { answerScriptId, extractedText, autoGrade = false } = requestData;
     
-    if (!answerScriptId || !imageUrl) {
+    if (!answerScriptId || !extractedText) {
       return new Response(
-        JSON.stringify({ error: 'answerScriptId and imageUrl are required' }),
+        JSON.stringify({ error: 'answerScriptId and extractedText are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
     
-    console.log(`Processing script ${answerScriptId} with image ${imageUrl}, autoGrade: ${autoGrade}`)
-    
-    // Update script status to OCR pending
-    try {
-      await supabase
-        .from('answer_scripts')
-        .update({ processing_status: 'ocr_pending' })
-        .eq('id', answerScriptId)
-    } catch (updateError) {
-      console.error(`Error updating script status to ocr_pending: ${updateError.message}`);
-      // Continue processing despite the error
-    }
+    console.log(`Processing script ${answerScriptId}, autoGrade: ${autoGrade}`)
     
     // Get the examination details for this script
     const { data: scriptData, error: scriptError } = await supabase
@@ -187,45 +88,23 @@ serve(async (req: Request): Promise<Response> => {
       const warningMsg = `No questions found for this examination: ${scriptData.examination_id}`;
       console.warn(warningMsg);
       
-      // We'll continue with OCR but won't be able to segment properly
+      // We'll continue but won't be able to segment properly
       // This is a recoverable condition, not a fatal error
     }
     
-    // Perform OCR using Gemini API
-    let extractedText;
-    try {
-      console.log(`Extracting text from image using Gemini API: ${imageUrl}`)
-      extractedText = await extractTextWithGemini(imageUrl);
-      console.log(`Text extraction successful, length: ${extractedText.length}`)
-    } catch (ocrError) {
-      console.error(`OCR processing failed: ${ocrError.message}`)
-      
-      try {
-        // Update status to error
-        await supabase
-          .from('answer_scripts')
-          .update({ processing_status: 'error' })
-          .eq('id', answerScriptId)
-      } catch (updateError) {
-        console.error(`Error updating script status to error: ${updateError.message}`);
-      }
-        
-      return new Response(
-        JSON.stringify({ error: `OCR processing failed: ${ocrError.message}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-    
-    // Set the script to OCR complete status
+    // Store full extracted text in the answer_script
     try {
       await supabase
         .from('answer_scripts')
         .update({ 
+          full_extracted_text: extractedText,
           processing_status: 'ocr_complete'
         })
         .eq('id', answerScriptId)
+        
+      console.log(`Stored full extracted text for script ${answerScriptId}`)
     } catch (updateError) {
-      console.error(`Error updating script status to ocr_complete: ${updateError.message}`);
+      console.error(`Error storing full extracted text: ${updateError.message}`);
       // Continue despite error
     }
     
@@ -300,6 +179,8 @@ serve(async (req: Request): Promise<Response> => {
         .from('answer_scripts')
         .update({ processing_status: 'grading_pending' })
         .eq('id', answerScriptId)
+        
+      console.log(`Updated script ${answerScriptId} status to grading_pending`)
     } catch (updateError) {
       console.error(`Error updating script status to grading_pending: ${updateError.message}`);
       // Continue despite error
@@ -326,7 +207,7 @@ serve(async (req: Request): Promise<Response> => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Answer script processed successfully with Gemini OCR',
+        message: 'Answer script processed successfully',
         extractedText: extractedText
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -6,6 +5,7 @@ import * as z from 'zod';
 import { useAuth } from '@/contexts/AuthContext';
 import { createAnswerScript } from '@/services/dataService';
 import { uploadAnswerScript } from '@/lib/storage';
+import { processAnswerScript } from '@/lib/ocr';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -159,7 +159,7 @@ export function UploadScriptForm({ examinationId, students, onSuccess }: UploadS
       );
       
       // Create the answer script record in the database
-      await createAnswerScript({
+      const scriptResponse = await createAnswerScript({
         student_id: data.student_id,
         examination_id: examinationId,
         script_image_url: imageUrl,
@@ -168,6 +168,24 @@ export function UploadScriptForm({ examinationId, students, onSuccess }: UploadS
         custom_instructions: data.custom_instructions,
         enable_misconduct_detection: data.enable_misconduct_detection
       });
+      
+      if (scriptResponse && scriptResponse.id) {
+        // Process the script with our centralized OCR module
+        try {
+          await processAnswerScript(scriptResponse.id, imageUrl, true);
+          toast({
+            title: "Script Uploaded",
+            description: "The answer script has been uploaded and OCR processing has started.",
+          });
+        } catch (ocrError) {
+          console.error('OCR processing error:', ocrError);
+          toast({
+            variant: "warning",
+            title: "OCR Processing Error",
+            description: "The script was uploaded but OCR processing failed. You can retry processing later.",
+          });
+        }
+      }
       
       form.reset();
       setFilePreview(null);
