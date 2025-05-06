@@ -35,7 +35,7 @@ serve(async (req: Request): Promise<Response> => {
       )
     }
     
-    const { answerScriptId, extractedText, autoGrade = false } = requestData;
+    const { answerScriptId, extractedText, autoGrade = false, isMultiScript = false } = requestData;
     
     if (!answerScriptId || !extractedText) {
       return new Response(
@@ -44,12 +44,12 @@ serve(async (req: Request): Promise<Response> => {
       )
     }
     
-    console.log(`Processing script ${answerScriptId}, autoGrade: ${autoGrade}`)
+    console.log(`Processing script ${answerScriptId}, autoGrade: ${autoGrade}, isMultiScript: ${isMultiScript}`)
     
     // Get the examination details for this script
     const { data: scriptData, error: scriptError } = await supabase
       .from('answer_scripts')
-      .select('*, examination:examinations(*)')
+      .select('*, examination:examinations(*), student:students(*)')
       .eq('id', answerScriptId)
       .maybeSingle()
     
@@ -90,6 +90,47 @@ serve(async (req: Request): Promise<Response> => {
       
       // We'll continue but won't be able to segment properly
       // This is a recoverable condition, not a fatal error
+    }
+    
+    // If this is part of a multi-script submission, handle it differently
+    if (isMultiScript) {
+      console.log(`Processing as part of a multi-script submission`);
+      
+      // Find the script with the lowest script_number (usually 1) to store the combined text
+      const { data: firstScript } = await supabase
+        .from('answer_scripts')
+        .select('id')
+        .eq('student_id', scriptData.student_id)
+        .eq('examination_id', scriptData.examination_id)
+        .order('script_number')
+        .limit(1)
+        .single();
+        
+      if (firstScript && firstScript.id !== answerScriptId) {
+        console.log(`This is not the first script. First script ID is ${firstScript.id}`);
+        // Store full extracted text in the current script
+        await supabase
+          .from('answer_scripts')
+          .update({ 
+            full_extracted_text: extractedText,
+            processing_status: 'ocr_complete'
+          })
+          .eq('id', answerScriptId);
+          
+        console.log(`Updated script ${answerScriptId} with extracted text`);
+        
+        // We'll continue the processing on the first script where we store the combined text
+        const { data: combinedScriptData } = await supabase
+          .from('answer_scripts')
+          .select('combined_extracted_text')
+          .eq('id', firstScript.id)
+          .single();
+          
+        if (combinedScriptData?.combined_extracted_text) {
+          console.log(`Using combined text from first script for further processing`);
+          // Continue processing using the combined text from the first script
+        }
+      }
     }
     
     // Store full extracted text in the answer_script

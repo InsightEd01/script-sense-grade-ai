@@ -21,7 +21,7 @@ export async function extractTextWithGemini(imageBase64: string): Promise<OCRRes
         {
           parts: [
             {
-              text: "Extract all text from this image exactly as written. Do not correct spelling or grammar. Return only the extracted text without any additional commentary."
+              text: "Extract all text from this image exactly as written. Preserve formatting, including paragraph breaks. Do not correct spelling or grammar. Return only the extracted text without any additional commentary."
             },
             {
               inline_data: {

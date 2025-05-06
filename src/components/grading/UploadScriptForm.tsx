@@ -180,7 +180,7 @@ export function UploadScriptForm({ examinationId, students, onSuccess }: UploadS
         } catch (ocrError) {
           console.error('OCR processing error:', ocrError);
           toast({
-            variant: "warning",
+            variant: "destructive",
             title: "OCR Processing Error",
             description: "The script was uploaded but OCR processing failed. You can retry processing later.",
           });
