@@ -1,7 +1,7 @@
-
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
+import { performOCR } from '@/lib/ocr';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,11 +35,11 @@ serve(async (req: Request): Promise<Response> => {
       )
     }
     
-    const { answerScriptId, extractedText, autoGrade = false, isMultiScript = false } = requestData;
+    const { answerScriptId, imageUrl, autoGrade = false, isMultiScript = false } = requestData;
     
-    if (!answerScriptId || !extractedText) {
+    if (!answerScriptId || !imageUrl) {
       return new Response(
-        JSON.stringify({ error: 'answerScriptId and extractedText are required' }),
+        JSON.stringify({ error: 'answerScriptId and imageUrl are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -132,6 +132,9 @@ serve(async (req: Request): Promise<Response> => {
         }
       }
     }
+    
+    // Perform OCR to extract text from the image
+    const extractedText = await performOCR(imageUrl);
     
     // Store full extracted text in the answer_script if not already done
     try {
