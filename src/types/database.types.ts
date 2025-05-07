@@ -73,6 +73,9 @@ export interface Answer {
   override_justification?: string;
   question?: Question;
   flags?: string[];
+  segmentation_confidence?: number;
+  segmentation_method?: string;
+  spatial_location?: any;
 }
 
 export interface GradingResult {

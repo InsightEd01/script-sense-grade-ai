@@ -389,6 +389,33 @@ const GradingPage = () => {
     script.student?.unique_student_id.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const handleToggleSegmentationEditor = (scriptId: string) => {
+    setShowSegmentationEditor(prev => {
+      const newState = { ...prev };
+      newState[scriptId] = !newState[scriptId];
+      
+      if (newState[scriptId] && !answersByScript[scriptId]) {
+        fetchAnswerDetails(scriptId);
+      }
+      
+      return newState;
+    });
+  };
+
+  const handleAnswerUpdate = (scriptId: string, updatedAnswer: Answer) => {
+    setAnswersByScript(prev => {
+      const updatedAnswers = (prev[scriptId] || []).map(answer => 
+        answer.id === updatedAnswer.id ? updatedAnswer : answer
+      );
+      return { ...prev, [scriptId]: updatedAnswers };
+    });
+    
+    toast({
+      title: "Answer Updated",
+      description: "The answer text has been updated successfully.",
+    });
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -680,7 +707,7 @@ const GradingPage = () => {
                                           <SegmentationEditor
                                             key={answer.id}
                                             answer={answer}
-                                            question={answer.question}
+                                            question={answer.question as Question}
                                             onUpdate={(updatedAnswer) => handleAnswerUpdate(script.id, updatedAnswer)}
                                             teacherId={user?.id}
                                           />

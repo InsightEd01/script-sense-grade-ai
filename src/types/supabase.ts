@@ -68,7 +68,10 @@ export interface Answer {
   manual_grade?: number;
   override_justification?: string;
   flags?: string[];
-  questions?: Question;
+  question?: Question;
+  segmentation_confidence?: number;
+  segmentation_method?: string;
+  spatial_location?: any;
 }
 
 export interface GradingResult {
