@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   email: string;
@@ -70,8 +71,8 @@ export interface Answer {
   is_overridden: boolean;
   manual_grade?: number;
   override_justification?: string;
-  flags?: string[];
   question?: Question;
+  flags?: string[];
   segmentation_confidence?: number;
   segmentation_method?: string;
   spatial_location?: any;

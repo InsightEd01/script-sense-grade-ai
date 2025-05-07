@@ -1,3 +1,4 @@
+
 export interface Teacher {
   id: string;
   name: string;
@@ -26,6 +27,17 @@ export interface Examination {
   subject_id: string;
   name: string;
   total_marks: number;
+  created_at?: string;
+}
+
+export interface Question {
+  id: string;
+  examination_id: string;
+  question_text: string;
+  model_answer: string;
+  model_answer_source: 'uploaded' | 'ai_generated';
+  marks: number;
+  tolerance: number;
   created_at?: string;
 }
 
@@ -77,15 +89,4 @@ export interface User {
   id: string;
   email: string;
   role: 'admin' | 'teacher';
-}
-
-export interface Question {
-  id: string;
-  examination_id: string;
-  question_text: string;
-  model_answer: string;
-  model_answer_source: 'uploaded' | 'ai_generated';
-  marks: number;
-  tolerance: number;
-  created_at?: string;
 }
