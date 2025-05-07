@@ -32,7 +32,7 @@ import {
   deleteAnswerScript 
 } from '@/services/dataService';
 import { supabase } from '@/integrations/supabase/client';
-import { Examination, AnswerScript, Answer } from '@/types/supabase';
+import { Examination, AnswerScript, Answer, Question } from '@/types/supabase';
 import { format } from 'date-fns';
 import { UploadScriptForm } from '@/components/grading/UploadScriptForm';
 import {
@@ -229,7 +229,9 @@ const GradingPage = () => {
       if (error) throw error;
       
       if (data) {
-        setAnswersByScript(prev => ({ ...prev, [scriptId]: data }));
+        // Ensure the data is properly typed as Answer[] before setting state
+        const typedAnswers = data as unknown as Answer[];
+        setAnswersByScript(prev => ({ ...prev, [scriptId]: typedAnswers }));
       }
     } catch (error) {
       console.error('Error fetching answer details:', error);
@@ -707,7 +709,7 @@ const GradingPage = () => {
                                           <SegmentationEditor
                                             key={answer.id}
                                             answer={answer}
-                                            question={answer.question as Question}
+                                            question={answer.question}
                                             onUpdate={(updatedAnswer) => handleAnswerUpdate(script.id, updatedAnswer)}
                                             teacherId={user?.id}
                                           />

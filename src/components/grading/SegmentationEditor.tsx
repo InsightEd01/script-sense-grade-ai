@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -68,7 +69,7 @@ export function SegmentationEditor({ answer, question, onUpdate, teacherId }: Se
       
       setIsChanged(false);
       if (onUpdate && data && data[0]) {
-        onUpdate(data[0]);
+        onUpdate(data[0] as unknown as Answer);
       }
     } catch (error) {
       console.error('Error saving segmentation correction:', error);
