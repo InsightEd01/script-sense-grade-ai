@@ -32,7 +32,7 @@ import {
   deleteAnswerScript 
 } from '@/services/dataService';
 import { supabase } from '@/integrations/supabase/client';
-import { Examination, AnswerScript } from '@/types/supabase';
+import { Examination, AnswerScript, Answer } from '@/types/supabase';
 import { format } from 'date-fns';
 import { UploadScriptForm } from '@/components/grading/UploadScriptForm';
 import {
@@ -58,6 +58,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { SegmentationDetails, SegmentationEditor } from '@/components/grading/Segmentation';
 
 const GradingPage = () => {
   const { user } = useAuth();
@@ -72,6 +73,8 @@ const GradingPage = () => {
   const [cancellingScripts, setCancellingScripts] = useState<{ [key: string]: boolean }>({});
   const [gradingResults, setGradingResults] = useState<{ [key: string]: any }>({});
   const [showResults, setShowResults] = useState<{ [key: string]: boolean }>({});
+  const [showSegmentationEditor, setShowSegmentationEditor] = useState<{ [key: string]: boolean }>({});
+  const [answersByScript, setAnswersByScript] = useState<{ [key: string]: Answer[] }>({});
   const queryClient = useQueryClient();
 
   const searchParams = new URLSearchParams(location.search);
@@ -175,6 +178,9 @@ const GradingPage = () => {
         setExtractedTexts(prev => ({ ...prev, [scriptId]: data.extractedText }));
       }
       
+      // Fetch answer details after processing
+      await fetchAnswerDetails(scriptId);
+      
       refetchScripts();
       toast({
         title: "Processing Complete",
@@ -209,6 +215,24 @@ const GradingPage = () => {
       }
     } catch (error) {
       console.error('Error fetching extracted text:', error);
+    }
+  };
+
+  const fetchAnswerDetails = async (scriptId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('answers')
+        .select('*, question:questions(*)')
+        .eq('answer_script_id', scriptId)
+        .order('question:questions(created_at)');
+        
+      if (error) throw error;
+      
+      if (data) {
+        setAnswersByScript(prev => ({ ...prev, [scriptId]: data }));
+      }
+    } catch (error) {
+      console.error('Error fetching answer details:', error);
     }
   };
 
@@ -604,30 +628,72 @@ const GradingPage = () => {
                             {(script.processing_status === 'ocr_complete' || 
                               script.processing_status === 'grading_pending' || 
                               script.processing_status === 'grading_complete') && (
-                              <div className="mt-4">
-                                <Collapsible className="border rounded-md p-2 bg-muted/20">
-                                  <CollapsibleTrigger asChild>
-                                    <Button variant="ghost" size="sm" className="flex items-center w-full justify-between">
-                                      <span className="flex items-center">
-                                        <EyeIcon className="mr-1 h-4 w-4" />
-                                        View Extracted Text
-                                      </span>
-                                      <span className="text-xs text-muted-foreground">(Click to expand)</span>
-                                    </Button>
-                                  </CollapsibleTrigger>
-                                  <CollapsibleContent className="p-3 mt-2 bg-muted/30 rounded-md">
-                                    {extractedTexts[script.id] ? (
-                                      <pre className="whitespace-pre-wrap text-sm font-mono p-3 bg-muted/20 rounded overflow-auto max-h-60">
-                                        {extractedTexts[script.id]}
-                                      </pre>
+                              <div className="mt-4 space-y-2">
+                                {/* Show segmentation details when available */}
+                                {answersByScript[script.id] && (
+                                  <SegmentationDetails answers={answersByScript[script.id]} />
+                                )}
+                                
+                                {/* Add segmentation editor button */}
+                                <div className="flex space-x-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleToggleSegmentationEditor(script.id)}
+                                  >
+                                    {showSegmentationEditor[script.id] ? 'Hide' : 'Show'} Segmentation Editor
+                                  </Button>
+                                  
+                                  <Collapsible className="border rounded-md p-2 bg-muted/20 w-full">
+                                    <CollapsibleTrigger asChild>
+                                      <Button variant="ghost" size="sm" className="flex items-center w-full justify-between">
+                                        <span className="flex items-center">
+                                          <EyeIcon className="mr-1 h-4 w-4" />
+                                          View Raw Extracted Text
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">(Click to expand)</span>
+                                      </Button>
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent className="p-3 mt-2 bg-muted/30 rounded-md">
+                                      {extractedTexts[script.id] ? (
+                                        <pre className="whitespace-pre-wrap text-sm font-mono p-3 bg-muted/20 rounded overflow-auto max-h-60">
+                                          {extractedTexts[script.id]}
+                                        </pre>
+                                      ) : (
+                                        <div className="flex items-center justify-center p-4">
+                                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                          Loading extracted text...
+                                        </div>
+                                      )}
+                                    </CollapsibleContent>
+                                  </Collapsible>
+                                </div>
+                                
+                                {/* Segmentation Editor */}
+                                {showSegmentationEditor[script.id] && (
+                                  <div className="mt-4 border-t pt-4">
+                                    <h4 className="font-medium mb-4">Answer Segmentation Editor</h4>
+                                    
+                                    {answersByScript[script.id] ? (
+                                      <div className="space-y-4">
+                                        {answersByScript[script.id].map((answer) => (
+                                          <SegmentationEditor
+                                            key={answer.id}
+                                            answer={answer}
+                                            question={answer.question}
+                                            onUpdate={(updatedAnswer) => handleAnswerUpdate(script.id, updatedAnswer)}
+                                            teacherId={user?.id}
+                                          />
+                                        ))}
+                                      </div>
                                     ) : (
-                                      <div className="flex items-center justify-center p-4">
+                                      <div className="flex items-center justify-center p-8">
                                         <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                        Loading extracted text...
+                                        Loading answer details...
                                       </div>
                                     )}
-                                  </CollapsibleContent>
-                                </Collapsible>
+                                  </div>
+                                )}
                               </div>
                             )}
                             

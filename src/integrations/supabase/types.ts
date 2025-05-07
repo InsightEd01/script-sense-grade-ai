@@ -81,6 +81,9 @@ export type Database = {
           manual_grade: number | null
           override_justification: string | null
           question_id: string
+          segmentation_confidence: number | null
+          segmentation_method: string | null
+          spatial_location: Json | null
         }
         Insert: {
           answer_script_id: string
@@ -93,6 +96,9 @@ export type Database = {
           manual_grade?: number | null
           override_justification?: string | null
           question_id: string
+          segmentation_confidence?: number | null
+          segmentation_method?: string | null
+          spatial_location?: Json | null
         }
         Update: {
           answer_script_id?: string
@@ -105,6 +111,9 @@ export type Database = {
           manual_grade?: number | null
           override_justification?: string | null
           question_id?: string
+          segmentation_confidence?: number | null
+          segmentation_method?: string | null
+          spatial_location?: Json | null
         }
         Relationships: [
           {
@@ -280,6 +289,48 @@ export type Database = {
             columns: ["examination_id"]
             isOneToOne: false
             referencedRelation: "examinations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      segmentation_corrections: {
+        Row: {
+          answer_id: string | null
+          corrected_text: string | null
+          created_at: string | null
+          id: string
+          original_text: string | null
+          teacher_id: string | null
+        }
+        Insert: {
+          answer_id?: string | null
+          corrected_text?: string | null
+          created_at?: string | null
+          id?: string
+          original_text?: string | null
+          teacher_id?: string | null
+        }
+        Update: {
+          answer_id?: string | null
+          corrected_text?: string | null
+          created_at?: string | null
+          id?: string
+          original_text?: string | null
+          teacher_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "segmentation_corrections_answer_id_fkey"
+            columns: ["answer_id"]
+            isOneToOne: false
+            referencedRelation: "answers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "segmentation_corrections_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
             referencedColumns: ["id"]
           },
         ]
