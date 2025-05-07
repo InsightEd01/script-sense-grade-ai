@@ -1,6 +1,7 @@
 import { extractTextWithGemini } from '@/services/geminiOcrService';
 import { OCRResult } from '@/types/supabase';
 import { supabase } from '@/integrations/supabase/client';
+import { segmentAnswers } from '@/utils/textSegmentation';
 
 async function retryOperation<T>(
   operation: () => Promise<T>,
@@ -118,24 +119,89 @@ export async function processAnswerScript(answerScriptId: string, imageUrl: stri
       console.log(`Combined text from ${validScripts.length} scripts and saved to script ${firstScriptId}`);
     }
     
-    // Call the process-ocr edge function with the extracted text
-    console.log('Calling process-ocr function with extracted text');
-    const { data, error } = await supabase.functions.invoke('process-ocr', {
-      body: { 
-        answerScriptId,
-        extractedText: combinedText || currentScriptText,
-        autoGrade,
-        isMultiScript: validScripts.length > 1
-      }
-    });
-    
-    if (error) {
-      console.error('Error calling process-ocr function:', error);
-      throw new Error(`Failed to process OCR result: ${error.message}`);
+    // Get the questions for this examination
+    const { data: questions, error: questionsError } = await supabase
+      .from('questions')
+      .select('*')
+      .eq('examination_id', scriptData.examination_id)
+      .order('created_at');
+      
+    if (questionsError || !questions || questions.length === 0) {
+      console.error('Failed to retrieve questions:', questionsError || 'No questions found');
+      throw new Error('No questions found for this examination');
     }
     
-    console.log('Successfully processed answer script:', data);
-    return data;
+    // Use the ML segmentation to divide the text into answers
+    const textToSegment = combinedText || currentScriptText;
+    const segmentationResult = await segmentAnswers(textToSegment, questions);
+    const { segments, method, confidence } = segmentationResult;
+    
+    console.log(`Segmentation completed using ${method} with ${confidence} confidence`);
+    
+    // Store each segment as an answer
+    for (let i = 0; i < questions.length; i++) {
+      const question = questions[i];
+      const extractedText = segments[i] || `No text extracted for question ${i+1}`;
+      
+      // Check if answer already exists
+      const { data: existingAnswer } = await supabase
+        .from('answers')
+        .select('id')
+        .eq('answer_script_id', answerScriptId)
+        .eq('question_id', question.id)
+        .maybeSingle();
+        
+      if (existingAnswer) {
+        // Update existing answer
+        await supabase
+          .from('answers')
+          .update({ 
+            extracted_text: extractedText,
+            segmentation_method: method,
+            segmentation_confidence: confidence
+          })
+          .eq('id', existingAnswer.id);
+      } else {
+        // Insert new answer
+        await supabase
+          .from('answers')
+          .insert({
+            answer_script_id: answerScriptId,
+            question_id: question.id,
+            extracted_text: extractedText,
+            segmentation_method: method,
+            segmentation_confidence: confidence,
+            is_overridden: false
+          });
+      }
+    }
+    
+    // Update script status to grading pending
+    await supabase
+      .from('answer_scripts')
+      .update({ processing_status: 'grading_pending' })
+      .eq('id', answerScriptId);
+      
+    console.log(`Updated script ${answerScriptId} status to grading_pending`);
+    
+    // If autoGrade is true, trigger grading
+    if (autoGrade) {
+      try {
+        console.log(`Auto-triggering grading for script ${answerScriptId}`);
+        const { data: gradingData, error: gradingError } = await supabase.functions.invoke('grade-answers', {
+          body: { answerScriptId: answerScriptId }
+        });
+        
+        if (gradingError) {
+          console.error(`Error auto-grading: ${gradingError.message}`);
+        } else {
+          console.log(`Auto-grading complete for script ${answerScriptId}`);
+        }
+      } catch (gradingErr) {
+        console.error(`Exception during auto-grading: ${gradingErr.message}`);
+      }
+    }
+    
   } catch (error) {
     console.error('Error in processAnswerScript:', error);
     

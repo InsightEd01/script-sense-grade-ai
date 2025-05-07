@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   email: string;
@@ -71,8 +70,8 @@ export interface Answer {
   is_overridden: boolean;
   manual_grade?: number;
   override_justification?: string;
-  question?: Question;
   flags?: string[];
+  question?: Question;
   segmentation_confidence?: number;
   segmentation_method?: string;
   spatial_location?: any;

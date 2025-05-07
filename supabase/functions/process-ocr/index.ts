@@ -12,118 +12,9 @@ const corsHeaders = {
 const GEMINI_API_KEY = 'AIzaSyBBe5atwksC1l0hXhCudRs6oYIcu7ZdxhA';
 const MODEL_NAME = 'gemini-2.0-flash';
 
-// Import segmentation functions directly in edge function since we can't import from project
-function detectQuestionNumbers(extractedText) {
-  const patterns = [
-    /(?:^|\n)(?:question|q)[\s.:]*([\d]+)/gi,  // Matches "Question 1" or "Q1"
-    /(?:^|\n)(\d+)[\s.:]*\)/gi,                // Matches "1)" format
-    /(?:^|\n)(\d+)[\s.:]*(?=\w)/gi             // Matches numbers at start of paragraphs
-  ];
-  
-  let matches = [];
-  for (const pattern of patterns) {
-    const patternMatches = Array.from(extractedText.matchAll(pattern));
-    matches = [...matches, ...patternMatches];
-  }
-  
-  // Sort by position in text
-  return matches.sort((a, b) => (a.index || 0) - (b.index || 0));
-}
-
-function segmentByMarkers(extractedText, markers, questionCount) {
-  const segments = [];
-  
-  // Use markers to segment text
-  for (let i = 0; i < Math.min(markers.length, questionCount); i++) {
-    const currentMarker = markers[i];
-    const nextMarker = markers[i + 1];
-    
-    const startPos = currentMarker.index + currentMarker[0].length;
-    const endPos = nextMarker ? nextMarker.index : extractedText.length;
-    
-    segments.push(extractedText.substring(startPos, endPos).trim());
-  }
-  
-  // If we don't have enough segments, add empty ones
-  while (segments.length < questionCount) {
-    segments.push('');
-  }
-  
-  return segments;
-}
-
-function segmentByParagraphs(extractedText, questionCount) {
-  const paragraphs = extractedText.split(/\n\s*\n/);
-  
-  if (paragraphs.length >= questionCount) {
-    // We have enough paragraphs, use the first questionCount paragraphs
-    return paragraphs.slice(0, questionCount);
-  } else {
-    // Not enough paragraphs, try to combine or split them
-    return segmentEvenly(extractedText, questionCount);
-  }
-}
-
-function segmentByWhitespace(extractedText, questionCount) {
-  // Look for patterns of multiple newlines or large whitespace gaps
-  const segments = extractedText.split(/\n{3,}|\s{5,}/);
-  
-  if (segments.length >= questionCount) {
-    return segments.slice(0, questionCount);
-  } else {
-    return segmentEvenly(extractedText, questionCount);
-  }
-}
-
-function segmentEvenly(extractedText, questionCount) {
-  const avgLength = Math.floor(extractedText.length / questionCount);
-  const segments = [];
-  
-  for (let i = 0; i < questionCount; i++) {
-    const start = i * avgLength;
-    const end = (i + 1 === questionCount) ? extractedText.length : (i + 1) * avgLength;
-    segments.push(extractedText.substring(start, end).trim());
-  }
-  
-  return segments;
-}
-
-function improvedSegmentation(extractedText, questions) {
-  // Try to detect question numbers/markers
-  const questionMarkers = detectQuestionNumbers(extractedText);
-  const questionCount = questions.length;
-  
-  if (questionMarkers.length >= questionCount) {
-    // Use detected question markers to segment
-    return {
-      method: 'markers',
-      segments: segmentByMarkers(extractedText, questionMarkers, questionCount),
-      confidence: 0.9
-    };
-  } else {
-    const strategies = [
-      {
-        method: 'paragraphs',
-        segments: segmentByParagraphs(extractedText, questionCount),
-        confidence: 0.7
-      },
-      {
-        method: 'whitespace',
-        segments: segmentByWhitespace(extractedText, questionCount),
-        confidence: 0.6
-      },
-      {
-        method: 'evenly',
-        segments: segmentEvenly(extractedText, questionCount),
-        confidence: 0.5
-      }
-    ];
-    
-    // Simple implementation - prefer paragraph-based segmentation
-    return strategies[0];
-  }
-}
-
+/**
+ * Use Gemini AI model to segment text based on question context
+ */
 async function mlSegmentation(extractedText, questions) {
   try {
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
@@ -172,9 +63,29 @@ async function mlSegmentation(extractedText, questions) {
     }
   } catch (error) {
     console.error('ML segmentation failed:', error);
-    // Fall back to non-ML methods
-    return improvedSegmentation(extractedText, questions);
+    // Fall back to basic segmentation
+    return fallbackSegmentation(extractedText, questions.length);
   }
+}
+
+/**
+ * Fallback segmentation for when ML segmentation fails
+ */
+function fallbackSegmentation(extractedText, questionCount) {
+  const segments = [];
+  const avgLength = Math.floor(extractedText.length / questionCount);
+  
+  for (let i = 0; i < questionCount; i++) {
+    const start = i * avgLength;
+    const end = (i + 1 === questionCount) ? extractedText.length : (i + 1) * avgLength;
+    segments.push(extractedText.substring(start, end).trim());
+  }
+  
+  return {
+    method: 'basic',
+    segments,
+    confidence: 0.5
+  };
 }
 
 serve(async (req: Request): Promise<Response> => {
@@ -204,11 +115,11 @@ serve(async (req: Request): Promise<Response> => {
       )
     }
     
-    const { answerScriptId, imageUrl, autoGrade = false, isMultiScript = false } = requestData;
+    const { answerScriptId, extractedText, autoGrade = false, isMultiScript = false } = requestData;
     
-    if (!answerScriptId || !imageUrl) {
+    if (!answerScriptId) {
       return new Response(
-        JSON.stringify({ error: 'answerScriptId and imageUrl are required' }),
+        JSON.stringify({ error: 'answerScriptId is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -259,89 +170,53 @@ serve(async (req: Request): Promise<Response> => {
       // We'll continue but won't be able to segment properly
     }
     
-    // If this is part of a multi-script submission, handle it differently
-    if (isMultiScript) {
-      console.log(`Processing as part of a multi-script submission`);
-      
-      // Handle multi-script logic here...
-      // For now we'll just continue with normal processing
-    }
+    // Check if we have existing extracted text or use the provided extractedText
+    let textToProcess = extractedText;
     
-    // Perform OCR to extract text from the image
-    // In this edge function, we assume OCR has already been performed
-    // and we're just receiving the extracted text directly or via image URL
-    
-    // For demo purposes, we'll just use a mock extracted text
-    // In a real scenario, you'd call your OCR service here
-    let extractedText;
-    
-    // Check if we have existing extracted text
-    const { data: existingText } = await supabase
-      .from('answer_scripts')
-      .select('full_extracted_text')
-      .eq('id', answerScriptId)
-      .maybeSingle();
-    
-    if (existingText && existingText.full_extracted_text) {
-      extractedText = existingText.full_extracted_text;
-      console.log('Using existing extracted text');
-    } else {
-      // In a real scenario, you'd call your OCR service here
-      // For now, we'll just use a placeholder
-      extractedText = `This is placeholder extracted text. In a real scenario, this would be obtained via OCR.
-        
-      Question 1 answer would be here.
-        
-      Question 2 answer would appear here.`;
-      
-      console.log('Using placeholder extracted text - in production, call your OCR service');
-    }
-    
-    // Store full extracted text in the answer_script if not already done
-    try {
-      await supabase
+    if (!textToProcess) {
+      // If no text provided, check if we have existing extracted text
+      const { data: existingText } = await supabase
         .from('answer_scripts')
-        .update({ 
-          full_extracted_text: extractedText,
-          processing_status: 'ocr_complete'
-        })
+        .select('full_extracted_text')
         .eq('id', answerScriptId)
+        .maybeSingle();
+      
+      if (existingText && existingText.full_extracted_text) {
+        textToProcess = existingText.full_extracted_text;
+        console.log('Using existing extracted text');
+      } else {
+        // No text available
+        const errorMsg = 'No extracted text available for processing';
+        console.error(errorMsg);
         
-      console.log(`Stored full extracted text for script ${answerScriptId}`)
-    } catch (updateError) {
-      console.error(`Error storing full extracted text: ${updateError.message}`);
-      // Continue despite error
+        return new Response(
+          JSON.stringify({ error: errorMsg }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
     }
     
     if (questions && questions.length > 0) {
-      // Use our new advanced segmentation approach
-      let segmentedAnswers;
-      let segmentationMethod = 'basic';
-      let segmentationConfidence = 0.5;
+      // Use ML segmentation approach
       let segmentationResult;
       
       try {
-        // Try to use ML segmentation
-        segmentationResult = await mlSegmentation(extractedText, questions);
-        segmentedAnswers = segmentationResult.segments;
-        segmentationMethod = segmentationResult.method;
-        segmentationConfidence = segmentationResult.confidence;
-        console.log(`Used ${segmentationMethod} segmentation with ${segmentationConfidence} confidence`);
+        segmentationResult = await mlSegmentation(textToProcess, questions);
+        console.log(`Used ${segmentationResult.method} segmentation with ${segmentationResult.confidence} confidence`);
       } catch (segmentError) {
         console.error(`Error in ML segmentation: ${segmentError.message}`);
         
-        // Fall back to improved segmentation
-        segmentationResult = improvedSegmentation(extractedText, questions);
-        segmentedAnswers = segmentationResult.segments;
-        segmentationMethod = segmentationResult.method;
-        segmentationConfidence = segmentationResult.confidence;
-        console.log(`Fallback to ${segmentationMethod} segmentation with ${segmentationConfidence} confidence`);
+        // Fall back to basic segmentation
+        segmentationResult = fallbackSegmentation(textToProcess, questions.length);
+        console.log(`Fallback to ${segmentationResult.method} segmentation with ${segmentationResult.confidence} confidence`);
       }
+      
+      const { segments, method, confidence } = segmentationResult;
         
       // Store the extracted text for each question
       for (let i = 0; i < questions.length; i++) {
         const question = questions[i];
-        const questionText = segmentedAnswers[i] || `No text extracted for question ${i+1}`;
+        const questionText = segments[i] || `No text extracted for question ${i+1}`;
         
         try {
           // Check if answer already exists and create or update accordingly
@@ -358,8 +233,8 @@ serve(async (req: Request): Promise<Response> => {
               .from('answers')
               .update({ 
                 extracted_text: questionText,
-                segmentation_method: segmentationMethod,
-                segmentation_confidence: segmentationConfidence
+                segmentation_method: method,
+                segmentation_confidence: confidence
               })
               .eq('id', existingAnswer.id);
           } else {
@@ -370,8 +245,8 @@ serve(async (req: Request): Promise<Response> => {
                 answer_script_id: answerScriptId,
                 question_id: question.id,
                 extracted_text: questionText,
-                segmentation_method: segmentationMethod,
-                segmentation_confidence: segmentationConfidence,
+                segmentation_method: method,
+                segmentation_confidence: confidence,
                 is_overridden: false
               });
           }
@@ -405,7 +280,7 @@ serve(async (req: Request): Promise<Response> => {
         if (gradingError) {
           console.error(`Error auto-grading: ${gradingError.message}`);
         } else {
-          console.log(`Auto-grading complete for script ${answerScriptId}: ${JSON.stringify(gradingData)}`);
+          console.log(`Auto-grading complete for script ${answerScriptId}`);
         }
       } catch (gradingErr) {
         console.error(`Exception during auto-grading: ${gradingErr.message}`);
@@ -416,9 +291,8 @@ serve(async (req: Request): Promise<Response> => {
       JSON.stringify({ 
         success: true, 
         message: 'Answer script processed successfully',
-        extractedText: extractedText,
-        segmentationMethod,
-        segmentationConfidence
+        segmentationMethod: segmentationResult?.method || 'ml',
+        segmentationConfidence: segmentationResult?.confidence || 0.95
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
