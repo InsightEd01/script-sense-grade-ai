@@ -3,8 +3,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Question } from "@/types/supabase";
 import { SegmentationResult } from "@/types/supabase";
 
-const GEMINI_API_KEY = "AIzaSyDCq_tAdO5lqgsU5wlYtjhI0vpdk_jKr28";
-const MODEL_NAME = "gemini-2.0-flash";
+const GEMINI_API_KEY = "AIzaSyDI-Dlnosnc5js38cj8d6O-y-Icl2EXzV0";
+const MODEL_NAME = "gemma-3-27b-it";
 
 // ML-based segmentation using Gemini
 export async function mlSegmentation(extractedText: string, questions: Question[]): Promise<SegmentationResult> {
@@ -45,6 +45,8 @@ export async function mlSegmentation(extractedText: string, questions: Question[
       const cleanedJson = resultText.replace(/^```json\n|\n```$/g, '');
       const parsed = JSON.parse(cleanedJson);
       
+      console.log("Successfully parsed ML segmentation result:", parsed.segments?.length || 0, "segments");
+      
       return {
         method: 'ml',
         segments: parsed.segments || [],
@@ -52,6 +54,7 @@ export async function mlSegmentation(extractedText: string, questions: Question[
       };
     } catch (parseError) {
       console.error('Failed to parse ML segmentation result:', parseError);
+      console.error('Raw text received:', resultText);
       throw parseError;
     }
   } catch (error) {
