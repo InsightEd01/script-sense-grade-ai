@@ -229,9 +229,12 @@ const GradingPage = () => {
       if (error) throw error;
       
       if (data) {
-        // Ensure the data is properly typed as Answer[] before setting state
+        // Properly cast the data to Answer[] type
         const typedAnswers = data as unknown as Answer[];
-        setAnswersByScript(prev => ({ ...prev, [scriptId]: typedAnswers }));
+        setAnswersByScript(prev => ({ 
+          ...prev, 
+          [scriptId]: typedAnswers 
+        }));
       }
     } catch (error) {
       console.error('Error fetching answer details:', error);
@@ -406,10 +409,15 @@ const GradingPage = () => {
 
   const handleAnswerUpdate = (scriptId: string, updatedAnswer: Answer) => {
     setAnswersByScript(prev => {
-      const updatedAnswers = (prev[scriptId] || []).map(answer => 
+      const currentAnswers = prev[scriptId] || [];
+      const updatedAnswers = currentAnswers.map(answer => 
         answer.id === updatedAnswer.id ? updatedAnswer : answer
       );
-      return { ...prev, [scriptId]: updatedAnswers };
+      
+      return { 
+        ...prev, 
+        [scriptId]: updatedAnswers 
+      };
     });
     
     toast({

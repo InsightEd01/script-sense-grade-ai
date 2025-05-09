@@ -1,6 +1,8 @@
+
 import { extractTextWithGemini } from '@/services/geminiOcrService';
-import { OCRResult } from '@/types/supabase';
+import { OCRResult, Question, SegmentationResult } from '@/types/supabase';
 import { supabase } from '@/integrations/supabase/client';
+import { mlSegmentation, simpleSegmentation } from './textSegmentation';
 
 async function retryOperation<T>(
   operation: () => Promise<T>,
@@ -253,83 +255,21 @@ async function resizeImage(imageData: string, maxWidth = 1200, maxHeight = 1600)
   });
 }
 
-export async function segmentAnswers(extractedText: string, questionCount: number): Promise<string[]> {
-  console.log('Segmenting answers from text, question count:', questionCount);
+// New function that relies on our ML segmentation
+export async function segmentAnswers(extractedText: string, questions: Question[]): Promise<SegmentationResult> {
+  console.log('Segmenting answers using ML approach, question count:', questions.length);
   
   if (!extractedText || extractedText.trim() === '') {
     console.warn('Empty text provided for segmentation');
-    return Array(questionCount).fill('No text extracted');
+    return simpleSegmentation('', questions.length);
   }
   
-  console.log('Sample of extracted text:', extractedText.substring(0, 100) + '...');
-  
-  // Basic segmentation: Try to identify question markers
-  const segmentedAnswers: string[] = [];
-  
-  // Common patterns for question markers (enhanced)
-  const patterns = [
-    // Question number at beginning of line (more comprehensive)
-    /(?:^|\n)\s*(?:q(?:uestion)?\s*(\d+)|(\d+)[\.\):]|\b(?:answer|ans)[\s\.]*(?:to question)?[\s\.]*(\d+))/gi,
-    
-    // Answer number at beginning of line
-    /(?:^|\n)\s*(?:a(?:nswer)?\s*(\d+)|(\d+)\s*[\)\.:])/gi,
-    
-    // Look for paragraph breaks as potential answer boundaries
-    /(?:^|\n\n|\r\n\r\n)/g
-  ];
-  
-  // Try to find question/answer markers first
-  let markerFound = false;
-  for (const pattern of patterns) {
-    const matches = Array.from(extractedText.matchAll(pattern));
-    console.log(`Found ${matches.length} matches with pattern:`, pattern);
-    
-    if (matches.length >= questionCount) {
-      // We found enough markers to segment by
-      markerFound = true;
-      console.log('Using markers for segmentation');
-      
-      for (let i = 0; i < questionCount; i++) {
-        const start = matches[i].index || 0;
-        const end = i < matches.length - 1 ? matches[i + 1].index : extractedText.length;
-        if (end !== undefined && start !== undefined) {
-          segmentedAnswers[i] = extractedText.substring(start, end).trim();
-          console.log(`Answer ${i+1} length: ${segmentedAnswers[i].length} chars`);
-        }
-      }
-      break;
-    }
+  try {
+    // Use ML-based segmentation as primary method
+    return await mlSegmentation(extractedText, questions);
+  } catch (error) {
+    console.error('Error in ML segmentation, falling back to simple method:', error);
+    // Fallback to simple segmentation
+    return simpleSegmentation(extractedText, questions.length);
   }
-  
-  // If we couldn't segment by markers, try a more sophisticated approach
-  if (!markerFound) {
-    console.log('No reliable markers found, using alternative segmentation');
-    
-    // Try using paragraph breaks if available
-    const paragraphs = extractedText.split(/\n\s*\n/);
-    if (paragraphs.length >= questionCount) {
-      console.log('Using paragraph breaks for segmentation');
-      for (let i = 0; i < questionCount; i++) {
-        segmentedAnswers[i] = paragraphs[i].trim();
-        console.log(`Answer ${i+1} length: ${segmentedAnswers[i].length} chars`);
-      }
-    } else {
-      // Last resort: dividing the text evenly
-      console.log('Using equal division for segmentation');
-      const avgLength = Math.floor(extractedText.length / questionCount);
-      for (let i = 0; i < questionCount; i++) {
-        const start = i * avgLength;
-        const end = (i + 1 === questionCount) ? extractedText.length : (i + 1) * avgLength;
-        segmentedAnswers[i] = extractedText.substring(start, end).trim();
-        console.log(`Answer ${i+1} length: ${segmentedAnswers[i].length} chars`);
-      }
-    }
-  }
-  
-  // Ensure we have exactly the right number of answers
-  while (segmentedAnswers.length < questionCount) {
-    segmentedAnswers.push('No text extracted for this question');
-  }
-  
-  return segmentedAnswers.slice(0, questionCount);
 }

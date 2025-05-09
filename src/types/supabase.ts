@@ -90,3 +90,9 @@ export interface User {
   email: string;
   role: 'admin' | 'teacher';
 }
+
+export interface SegmentationResult {
+  method: string;
+  segments: string[];
+  confidence: number;
+}

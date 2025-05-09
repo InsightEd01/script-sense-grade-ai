@@ -12,118 +12,7 @@ const corsHeaders = {
 const GEMINI_API_KEY = 'AIzaSyBBe5atwksC1l0hXhCudRs6oYIcu7ZdxhA';
 const MODEL_NAME = 'gemini-2.0-flash';
 
-// Import segmentation functions directly in edge function since we can't import from project
-function detectQuestionNumbers(extractedText) {
-  const patterns = [
-    /(?:^|\n)(?:question|q)[\s.:]*([\d]+)/gi,  // Matches "Question 1" or "Q1"
-    /(?:^|\n)(\d+)[\s.:]*\)/gi,                // Matches "1)" format
-    /(?:^|\n)(\d+)[\s.:]*(?=\w)/gi             // Matches numbers at start of paragraphs
-  ];
-  
-  let matches = [];
-  for (const pattern of patterns) {
-    const patternMatches = Array.from(extractedText.matchAll(pattern));
-    matches = [...matches, ...patternMatches];
-  }
-  
-  // Sort by position in text
-  return matches.sort((a, b) => (a.index || 0) - (b.index || 0));
-}
-
-function segmentByMarkers(extractedText, markers, questionCount) {
-  const segments = [];
-  
-  // Use markers to segment text
-  for (let i = 0; i < Math.min(markers.length, questionCount); i++) {
-    const currentMarker = markers[i];
-    const nextMarker = markers[i + 1];
-    
-    const startPos = currentMarker.index + currentMarker[0].length;
-    const endPos = nextMarker ? nextMarker.index : extractedText.length;
-    
-    segments.push(extractedText.substring(startPos, endPos).trim());
-  }
-  
-  // If we don't have enough segments, add empty ones
-  while (segments.length < questionCount) {
-    segments.push('');
-  }
-  
-  return segments;
-}
-
-function segmentByParagraphs(extractedText, questionCount) {
-  const paragraphs = extractedText.split(/\n\s*\n/);
-  
-  if (paragraphs.length >= questionCount) {
-    // We have enough paragraphs, use the first questionCount paragraphs
-    return paragraphs.slice(0, questionCount);
-  } else {
-    // Not enough paragraphs, try to combine or split them
-    return segmentEvenly(extractedText, questionCount);
-  }
-}
-
-function segmentByWhitespace(extractedText, questionCount) {
-  // Look for patterns of multiple newlines or large whitespace gaps
-  const segments = extractedText.split(/\n{3,}|\s{5,}/);
-  
-  if (segments.length >= questionCount) {
-    return segments.slice(0, questionCount);
-  } else {
-    return segmentEvenly(extractedText, questionCount);
-  }
-}
-
-function segmentEvenly(extractedText, questionCount) {
-  const avgLength = Math.floor(extractedText.length / questionCount);
-  const segments = [];
-  
-  for (let i = 0; i < questionCount; i++) {
-    const start = i * avgLength;
-    const end = (i + 1 === questionCount) ? extractedText.length : (i + 1) * avgLength;
-    segments.push(extractedText.substring(start, end).trim());
-  }
-  
-  return segments;
-}
-
-function improvedSegmentation(extractedText, questions) {
-  // Try to detect question numbers/markers
-  const questionMarkers = detectQuestionNumbers(extractedText);
-  const questionCount = questions.length;
-  
-  if (questionMarkers.length >= questionCount) {
-    // Use detected question markers to segment
-    return {
-      method: 'markers',
-      segments: segmentByMarkers(extractedText, questionMarkers, questionCount),
-      confidence: 0.9
-    };
-  } else {
-    const strategies = [
-      {
-        method: 'paragraphs',
-        segments: segmentByParagraphs(extractedText, questionCount),
-        confidence: 0.7
-      },
-      {
-        method: 'whitespace',
-        segments: segmentByWhitespace(extractedText, questionCount),
-        confidence: 0.6
-      },
-      {
-        method: 'evenly',
-        segments: segmentEvenly(extractedText, questionCount),
-        confidence: 0.5
-      }
-    ];
-    
-    // Simple implementation - prefer paragraph-based segmentation
-    return strategies[0];
-  }
-}
-
+// Use ML-based segmentation with Gemini
 async function mlSegmentation(extractedText, questions) {
   try {
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
@@ -172,9 +61,29 @@ async function mlSegmentation(extractedText, questions) {
     }
   } catch (error) {
     console.error('ML segmentation failed:', error);
-    // Fall back to non-ML methods
-    return improvedSegmentation(extractedText, questions);
+    // Fall back to simple segmentation
+    return simpleSegmentation(extractedText, questions.length);
   }
+}
+
+// Simple fallback segmentation method - divides text evenly
+function simpleSegmentation(extractedText, questionCount) {
+  console.log("Using simple segmentation as fallback");
+  const segments = [];
+  
+  // Divide text evenly
+  const avgLength = Math.floor(extractedText.length / questionCount);
+  for (let i = 0; i < questionCount; i++) {
+    const start = i * avgLength;
+    const end = (i + 1 === questionCount) ? extractedText.length : (i + 1) * avgLength;
+    segments.push(extractedText.substring(start, end).trim());
+  }
+  
+  return {
+    method: 'evenly',
+    segments: segments,
+    confidence: 0.5
+  };
 }
 
 serve(async (req: Request): Promise<Response> => {
@@ -204,11 +113,11 @@ serve(async (req: Request): Promise<Response> => {
       )
     }
     
-    const { answerScriptId, imageUrl, autoGrade = false, isMultiScript = false } = requestData;
+    const { answerScriptId, extractedText, autoGrade = false, isMultiScript = false } = requestData;
     
-    if (!answerScriptId || !imageUrl) {
+    if (!answerScriptId) {
       return new Response(
-        JSON.stringify({ error: 'answerScriptId and imageUrl are required' }),
+        JSON.stringify({ error: 'answerScriptId is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -249,153 +158,127 @@ serve(async (req: Request): Promise<Response> => {
       .eq('examination_id', scriptData.examination_id)
       .order('created_at')
     
-    if (questionsError) {
-      console.error(`Error fetching questions: ${questionsError.message}`);
-    }
-    
-    if (!questions || questions.length === 0) {
+    if (questionsError || !questions || questions.length === 0) {
       const warningMsg = `No questions found for this examination: ${scriptData.examination_id}`;
       console.warn(warningMsg);
-      // We'll continue but won't be able to segment properly
+      
+      // Update to error status
+      await supabase
+        .from('answer_scripts')
+        .update({ processing_status: 'error' })
+        .eq('id', answerScriptId);
+      
+      return new Response(
+        JSON.stringify({ error: warningMsg }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
     
-    // If this is part of a multi-script submission, handle it differently
-    if (isMultiScript) {
-      console.log(`Processing as part of a multi-script submission`);
-      
-      // Handle multi-script logic here...
-      // For now we'll just continue with normal processing
-    }
-    
-    // Perform OCR to extract text from the image
-    // In this edge function, we assume OCR has already been performed
-    // and we're just receiving the extracted text directly or via image URL
-    
-    // For demo purposes, we'll just use a mock extracted text
-    // In a real scenario, you'd call your OCR service here
-    let extractedText;
-    
-    // Check if we have existing extracted text
-    const { data: existingText } = await supabase
-      .from('answer_scripts')
-      .select('full_extracted_text')
-      .eq('id', answerScriptId)
-      .maybeSingle();
-    
-    if (existingText && existingText.full_extracted_text) {
-      extractedText = existingText.full_extracted_text;
-      console.log('Using existing extracted text');
-    } else {
-      // In a real scenario, you'd call your OCR service here
-      // For now, we'll just use a placeholder
-      extractedText = `This is placeholder extracted text. In a real scenario, this would be obtained via OCR.
+    // Check if we have extracted text
+    if (!extractedText) {
+      // Check if we have existing extracted text
+      const { data: existingText } = await supabase
+        .from('answer_scripts')
+        .select('full_extracted_text')
+        .eq('id', answerScriptId)
+        .maybeSingle();
         
-      Question 1 answer would be here.
+      if (existingText?.full_extracted_text) {
+        extractedText = existingText.full_extracted_text;
+      } else {
+        const errorMsg = 'No extracted text provided and none found in database';
+        console.error(errorMsg);
         
-      Question 2 answer would appear here.`;
-      
-      console.log('Using placeholder extracted text - in production, call your OCR service');
+        await supabase
+          .from('answer_scripts')
+          .update({ processing_status: 'error' })
+          .eq('id', answerScriptId);
+        
+        return new Response(
+          JSON.stringify({ error: errorMsg }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
     
     // Store full extracted text in the answer_script if not already done
+    await supabase
+      .from('answer_scripts')
+      .update({ 
+        full_extracted_text: extractedText,
+        processing_status: 'ocr_complete'
+      })
+      .eq('id', answerScriptId);
+      
+    console.log(`Stored full extracted text for script ${answerScriptId}`);
+    
+    // Use ML segmentation to divide text into answers
+    let segmentationResult;
+    
     try {
-      await supabase
-        .from('answer_scripts')
-        .update({ 
-          full_extracted_text: extractedText,
-          processing_status: 'ocr_complete'
-        })
-        .eq('id', answerScriptId)
-        
-      console.log(`Stored full extracted text for script ${answerScriptId}`)
-    } catch (updateError) {
-      console.error(`Error storing full extracted text: ${updateError.message}`);
-      // Continue despite error
+      segmentationResult = await mlSegmentation(extractedText, questions);
+      console.log(`Used ${segmentationResult.method} segmentation with ${segmentationResult.confidence} confidence`);
+    } catch (segmentError) {
+      console.error(`Error in ML segmentation: ${segmentError.message}`);
+      // Fall back to simple segmentation
+      segmentationResult = simpleSegmentation(extractedText, questions.length);
+      console.log(`Fallback to ${segmentationResult.method} segmentation with ${segmentationResult.confidence} confidence`);
     }
     
-    if (questions && questions.length > 0) {
-      // Use our new advanced segmentation approach
-      let segmentedAnswers;
-      let segmentationMethod = 'basic';
-      let segmentationConfidence = 0.5;
-      let segmentationResult;
+    // Store the extracted text for each question
+    for (let i = 0; i < questions.length; i++) {
+      const question = questions[i];
+      const questionText = i < segmentationResult.segments.length ? 
+        segmentationResult.segments[i] : 
+        `No text extracted for question ${i+1}`;
       
       try {
-        // Try to use ML segmentation
-        segmentationResult = await mlSegmentation(extractedText, questions);
-        segmentedAnswers = segmentationResult.segments;
-        segmentationMethod = segmentationResult.method;
-        segmentationConfidence = segmentationResult.confidence;
-        console.log(`Used ${segmentationMethod} segmentation with ${segmentationConfidence} confidence`);
-      } catch (segmentError) {
-        console.error(`Error in ML segmentation: ${segmentError.message}`);
-        
-        // Fall back to improved segmentation
-        segmentationResult = improvedSegmentation(extractedText, questions);
-        segmentedAnswers = segmentationResult.segments;
-        segmentationMethod = segmentationResult.method;
-        segmentationConfidence = segmentationResult.confidence;
-        console.log(`Fallback to ${segmentationMethod} segmentation with ${segmentationConfidence} confidence`);
-      }
-        
-      // Store the extracted text for each question
-      for (let i = 0; i < questions.length; i++) {
-        const question = questions[i];
-        const questionText = segmentedAnswers[i] || `No text extracted for question ${i+1}`;
-        
-        try {
-          // Check if answer already exists and create or update accordingly
-          const { data: existingAnswer } = await supabase
+        // Check if answer already exists and create or update accordingly
+        const { data: existingAnswer } = await supabase
+          .from('answers')
+          .select('id')
+          .eq('answer_script_id', answerScriptId)
+          .eq('question_id', question.id)
+          .maybeSingle();
+          
+        if (existingAnswer) {
+          // Update existing answer
+          await supabase
             .from('answers')
-            .select('id')
-            .eq('answer_script_id', answerScriptId)
-            .eq('question_id', question.id)
-            .maybeSingle();
-            
-          if (existingAnswer) {
-            // Update existing answer
-            await supabase
-              .from('answers')
-              .update({ 
-                extracted_text: questionText,
-                segmentation_method: segmentationMethod,
-                segmentation_confidence: segmentationConfidence
-              })
-              .eq('id', existingAnswer.id);
-          } else {
-            // Insert new answer
-            await supabase
-              .from('answers')
-              .insert({
-                answer_script_id: answerScriptId,
-                question_id: question.id,
-                extracted_text: questionText,
-                segmentation_method: segmentationMethod,
-                segmentation_confidence: segmentationConfidence,
-                is_overridden: false
-              });
-          }
-        } catch (answerError) {
-          console.error(`Error saving answer for question ${question.id}:`, answerError);
+            .update({ 
+              extracted_text: questionText,
+              segmentation_method: segmentationResult.method,
+              segmentation_confidence: segmentationResult.confidence
+            })
+            .eq('id', existingAnswer.id);
+        } else {
+          // Insert new answer
+          await supabase
+            .from('answers')
+            .insert({
+              answer_script_id: answerScriptId,
+              question_id: question.id,
+              extracted_text: questionText,
+              segmentation_method: segmentationResult.method,
+              segmentation_confidence: segmentationResult.confidence,
+              is_overridden: false
+            });
         }
+      } catch (answerError) {
+        console.error(`Error saving answer for question ${question.id}:`, answerError);
       }
     }
     
     // Update script status to grading pending
-    try {
-      await supabase
-        .from('answer_scripts')
-        .update({ processing_status: 'grading_pending' })
-        .eq('id', answerScriptId)
-        
-      console.log(`Updated script ${answerScriptId} status to grading_pending`)
-    } catch (updateError) {
-      console.error(`Error updating script status to grading_pending: ${updateError.message}`);
-      // Continue despite error
-    }
+    await supabase
+      .from('answer_scripts')
+      .update({ processing_status: 'grading_pending' })
+      .eq('id', answerScriptId);
+      
+    console.log(`Updated script ${answerScriptId} status to grading_pending`);
     
     // If autoGrade is true, trigger grading
-    if (autoGrade && questions && questions.length > 0) {
+    if (autoGrade) {
       try {
         console.log(`Auto-triggering grading for script ${answerScriptId}`);
         const { data: gradingData, error: gradingError } = await supabase.functions.invoke('grade-answers', {
@@ -416,9 +299,8 @@ serve(async (req: Request): Promise<Response> => {
       JSON.stringify({ 
         success: true, 
         message: 'Answer script processed successfully',
-        extractedText: extractedText,
-        segmentationMethod,
-        segmentationConfidence
+        segmentationMethod: segmentationResult.method,
+        segmentationConfidence: segmentationResult.confidence
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
