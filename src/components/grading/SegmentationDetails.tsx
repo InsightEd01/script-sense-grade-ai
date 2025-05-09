@@ -136,11 +136,6 @@ export function SegmentationDetails({ answers }: SegmentationDetailsProps) {
                   </p>
                 </div>
               )}
-              
-              <p className="text-xs text-muted-foreground">
-                Segmentation is the process of dividing the extracted text into separate answers.
-                Higher confidence means the system is more certain about which text belongs to which question.
-              </p>
             </div>
           </CardContent>
         </Card>

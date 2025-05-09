@@ -3,8 +3,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Question } from "@/types/supabase";
 import { SegmentationResult } from "@/types/supabase";
 
-const GEMINI_API_KEY = "AIzaSyDCq_tAdO5lqgsU5wlYtjhI0vpdk_jKr28";
-const MODEL_NAME = "gemini-2.0-flash";
+const GEMINI_API_KEY = "AIzaSyDI-Dlnosnc5js38cj8d6O-y-Icl2EXzV0";
+const MODEL_NAME = "gemini-1.5-flash";
 
 // ML-based segmentation using Gemini
 export async function mlSegmentation(extractedText: string, questions: Question[]): Promise<SegmentationResult> {

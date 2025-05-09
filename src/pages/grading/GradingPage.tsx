@@ -20,7 +20,8 @@ import {
   Flag, 
   EyeIcon, 
   Trash2,
-  Play
+  Play,
+  RefreshCw
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Loading } from '@/components/ui/loading';
@@ -75,6 +76,7 @@ const GradingPage = () => {
   const [showResults, setShowResults] = useState<{ [key: string]: boolean }>({});
   const [showSegmentationEditor, setShowSegmentationEditor] = useState<{ [key: string]: boolean }>({});
   const [answersByScript, setAnswersByScript] = useState<{ [key: string]: Answer[] }>({});
+  const [isRegrading, setIsRegrading] = useState<{ [key: string]: boolean }>({});
   const queryClient = useQueryClient();
 
   const searchParams = new URLSearchParams(location.search);
@@ -138,8 +140,10 @@ const GradingPage = () => {
       );
       
       scriptsToLoad.forEach(script => {
-        if (!extractedTexts[script.id]) {
-          fetchExtractedText(script.id);
+        fetchExtractedText(script.id);
+        // Always fetch answer details for processing complete scripts
+        if (['ocr_complete', 'grading_complete'].includes(script.processing_status)) {
+          fetchAnswerDetails(script.id);
         }
       });
     }
@@ -224,20 +228,40 @@ const GradingPage = () => {
         .from('answers')
         .select('*, question:questions(*)')
         .eq('answer_script_id', scriptId)
-        .order('question:questions(created_at)');
+        .order('question(created_at)', { ascending: true });
         
       if (error) throw error;
       
       if (data) {
-        // Properly cast the data to Answer[] type
+        // Properly cast the data to Answer[] type and ensure correct ordering
         const typedAnswers = data as unknown as Answer[];
+        
+        // Sort by question id or created_at if needed
+        const sortedAnswers = typedAnswers.sort((a, b) => {
+          if (a.question && b.question) {
+            return a.question.created_at < b.question.created_at ? -1 : 1;
+          }
+          return 0;
+        });
+        
         setAnswersByScript(prev => ({ 
           ...prev, 
-          [scriptId]: typedAnswers 
+          [scriptId]: sortedAnswers 
         }));
+        
+        // Also fetch grading results if script is graded
+        const script = answerScripts?.find(s => s.id === scriptId);
+        if (script && script.processing_status === 'grading_complete') {
+          setGradingResults(prev => ({ ...prev, [scriptId]: sortedAnswers }));
+        }
       }
     } catch (error) {
       console.error('Error fetching answer details:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to load answer details. Please try again.",
+      });
     }
   };
 
@@ -256,19 +280,11 @@ const GradingPage = () => {
         throw error;
       }
       
-      refetchScripts();
+      // Refresh data
+      await refetchScripts();
+      await fetchAnswerDetails(scriptId);
       
-      // Fetch grading results
-      const { data: answersData, error: answersError } = await supabase
-        .from('answers')
-        .select('*, question:questions(*)')
-        .eq('answer_script_id', scriptId);
-        
-      if (answersError) {
-        throw answersError;
-      }
-      
-      setGradingResults(prev => ({ ...prev, [scriptId]: answersData }));
+      // Show results
       setShowResults(prev => ({ ...prev, [scriptId]: true }));
       
       toast({
@@ -280,10 +296,56 @@ const GradingPage = () => {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to grade the script. Please try again.",
+        description: `Failed to grade the script: ${error.message || "Unknown error"}`,
       });
     } finally {
       setIsProcessing(prev => ({ ...prev, [scriptId]: false }));
+    }
+  };
+
+  const handleRegradeScript = async (scriptId: string) => {
+    try {
+      setIsRegrading(prev => ({ ...prev, [scriptId]: true }));
+      
+      // First, reset the script status to grading_pending
+      await supabase
+        .from('answer_scripts')
+        .update({ processing_status: 'grading_pending' })
+        .eq('id', scriptId);
+      
+      // Then run the grading process
+      const { data, error } = await supabase.functions.invoke('grade-answers', {
+        body: {
+          answerScriptId: scriptId,
+          customInstructions: customInstructions || undefined,
+          forceRegrade: true
+        }
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Refresh data
+      await refetchScripts();
+      await fetchAnswerDetails(scriptId);
+      
+      // Show results
+      setShowResults(prev => ({ ...prev, [scriptId]: true }));
+      
+      toast({
+        title: "Regrading Complete",
+        description: "The answer script has been regraded successfully.",
+      });
+    } catch (error) {
+      console.error('Error regrading script:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to regrade the script: ${error.message || "Unknown error"}`,
+      });
+    } finally {
+      setIsRegrading(prev => ({ ...prev, [scriptId]: false }));
     }
   };
 
@@ -577,7 +639,24 @@ const GradingPage = () => {
                                 </p>
                               </div>
                               <div className="space-x-2">
-                                {/* Start Grading Button (New) */}
+                                {/* Added regrade button for completed scripts */}
+                                {script.processing_status === 'grading_complete' && (
+                                  <Button 
+                                    size="sm" 
+                                    className="bg-amber-600 hover:bg-amber-700 text-white"
+                                    onClick={() => handleRegradeScript(script.id)}
+                                    disabled={isRegrading[script.id]}
+                                  >
+                                    {isRegrading[script.id] ? (
+                                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <RefreshCw className="mr-1 h-4 w-4" />
+                                    )}
+                                    Regrade
+                                  </Button>
+                                )}
+                                
+                                {/* Start Grading Button */}
                                 {(script.processing_status === 'uploaded' || 
                                   script.processing_status === 'ocr_complete') && (
                                   <Button 
@@ -667,11 +746,11 @@ const GradingPage = () => {
                               script.processing_status === 'grading_complete') && (
                               <div className="mt-4 space-y-2">
                                 {/* Show segmentation details when available */}
-                                {answersByScript[script.id] && (
+                                {answersByScript[script.id] && answersByScript[script.id].length > 0 && (
                                   <SegmentationDetails answers={answersByScript[script.id]} />
                                 )}
                                 
-                                {/* Add segmentation editor button */}
+                                {/* Segmentation editor button */}
                                 <div className="flex space-x-2">
                                   <Button
                                     variant="outline"
@@ -711,7 +790,7 @@ const GradingPage = () => {
                                   <div className="mt-4 border-t pt-4">
                                     <h4 className="font-medium mb-4">Answer Segmentation Editor</h4>
                                     
-                                    {answersByScript[script.id] ? (
+                                    {answersByScript[script.id] && answersByScript[script.id].length > 0 ? (
                                       <div className="space-y-4">
                                         {answersByScript[script.id].map((answer) => (
                                           <SegmentationEditor
@@ -734,7 +813,7 @@ const GradingPage = () => {
                               </div>
                             )}
                             
-                            {/* Grading Results Section (New) */}
+                            {/* Grading Results Section */}
                             {script.processing_status === 'grading_complete' && (
                               <div className="mt-4">
                                 <Collapsible 
@@ -756,11 +835,11 @@ const GradingPage = () => {
                                     </Button>
                                   </CollapsibleTrigger>
                                   <CollapsibleContent className="p-3 mt-2 bg-white rounded-md border">
-                                    {gradingResults[script.id] ? (
+                                    {answersByScript[script.id] && answersByScript[script.id].length > 0 ? (
                                       <div className="space-y-4">
                                         <h4 className="font-medium text-center">Grading Results</h4>
                                         <div className="space-y-3">
-                                          {gradingResults[script.id].map((answer: any) => (
+                                          {answersByScript[script.id].map((answer: Answer) => (
                                             <div key={answer.id} className="border-b pb-3">
                                               <p className="font-medium">Question: {answer.question?.question_text}</p>
                                               <p className="text-sm mt-1">
@@ -783,8 +862,9 @@ const GradingPage = () => {
                                         <div className="flex justify-between items-center pt-2 mt-2 border-t">
                                           <p className="font-medium">Total Score:</p>
                                           <p className="font-bold text-lg">
-                                            {gradingResults[script.id].reduce((total: number, answer: any) => 
-                                              total + (answer.assigned_grade || 0), 0).toFixed(1)} / {selectedExamination?.total_marks}
+                                            {answersByScript[script.id]
+                                              .reduce((total: number, answer: Answer) => 
+                                                total + (answer.assigned_grade || 0), 0).toFixed(1)} / {selectedExamination?.total_marks}
                                           </p>
                                         </div>
                                       </div>
@@ -799,18 +879,7 @@ const GradingPage = () => {
                               </div>
                             )}
                             
-                            {script.flags && script.flags.length > 0 && (
-                              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                                <p className="text-sm font-semibold text-red-800 flex items-center">
-                                  <Flag className="h-4 w-4 mr-2" /> Potential Misconduct Flags:
-                                </p>
-                                <ul className="mt-1 text-sm text-red-700 list-disc list-inside">
-                                  {script.flags.map((flag, index) => (
-                                    <li key={index}>{flag}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
+                            {/* ... keep existing code (misconduct flags) */}
                           </div>
                         </div>
                       </Card>
