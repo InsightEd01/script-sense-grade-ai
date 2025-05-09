@@ -9,8 +9,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const GEMINI_API_KEY = 'AIzaSyDI-Dlnosnc5js38cj8d6O-y-Icl2EXzV0';
-const MODEL_NAME = 'gemma-3-27b-it';
+const GEMINI_API_KEY = 'AIzaSyBBe5atwksC1l0hXhCudRs6oYIcu7ZdxhA';
+const MODEL_NAME = 'gemini-2.0-flash';
 
 // Use ML-based segmentation with Gemini
 async function mlSegmentation(extractedText, questions) {
@@ -37,8 +37,6 @@ async function mlSegmentation(extractedText, questions) {
       }
     `;
 
-    console.log('Sending segmentation request to Gemini API');
-
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: { temperature: 0.1 }
@@ -47,15 +45,10 @@ async function mlSegmentation(extractedText, questions) {
     const response = result.response;
     const resultText = response.text().trim();
     
-    console.log('Received segmentation response from Gemini API');
-    
     try {
       // Extract JSON part from the response
       const cleanedJson = resultText.replace(/^```json\n|\n```$/g, '');
-      console.log('Cleaned JSON:', cleanedJson.substring(0, 100) + '...');
-      
       const parsed = JSON.parse(cleanedJson);
-      console.log('Successfully parsed segmentation result with', parsed.segments?.length || 0, 'segments');
       
       return {
         method: 'ml',
@@ -64,7 +57,6 @@ async function mlSegmentation(extractedText, questions) {
       };
     } catch (parseError) {
       console.error('Failed to parse ML segmentation result:', parseError);
-      console.error('Raw segmentation text:', resultText.substring(0, 200) + '...');
       throw parseError;
     }
   } catch (error) {
