@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -704,102 +705,7 @@ const GradingPage = () => {
                                 </p>
                               </div>
                               <div className="space-x-2">
-                                {script.processing_status === 'grading_complete' && (
-                                  <Button 
-                                    size="sm" 
-                                    className="bg-amber-600 hover:bg-amber-700 text-white"
-                                    onClick={() => handleRegradeScript(script.id)}
-                                    disabled={isRegrading[script.id]}
-                                  >
-                                    {isRegrading[script.id] ? (
-                                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <RefreshCcw className="mr-1 h-4 w-4" />
-                                    )}
-                                    Regrade
-                                  </Button>
-                                )}
-                                
-                                {(script.processing_status === 'uploaded' || 
-                                  script.processing_status === 'ocr_complete') && (
-                                  <Button 
-                                    size="sm" 
-                                    className="bg-purple-600 hover:bg-purple-700 text-white"
-                                    onClick={() => handleStartGrading(script.id)}
-                                    disabled={isProcessing[script.id]}
-                                  >
-                                    {isProcessing[script.id] ? (
-                                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <Play className="mr-1 h-4 w-4" />
-                                    )}
-                                    Start Grading
-                                  </Button>
-                                )}
-                                
-                                {script.processing_status === 'uploaded' && (
-                                  <Button 
-                                    size="sm" 
-                                    variant="outline"
-                                    onClick={() => handleProcessScript(script.id)}
-                                    disabled={isProcessing[script.id]}
-                                  >
-                                    {isProcessing[script.id] ? (
-                                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <Clock className="mr-1 h-4 w-4" />
-                                    )}
-                                    Process OCR Only
-                                  </Button>
-                                )}
-                                
-                                {script.processing_status === 'ocr_pending' && (
-                                  <Button 
-                                    variant="destructive"
-                                    size="sm"
-                                    onClick={() => handleCancelProcessing(script.id)}
-                                    disabled={cancellingScripts[script.id]}
-                                  >
-                                    {cancellingScripts[script.id] ? (
-                                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <XCircle className="mr-1 h-4 w-4" />
-                                    )}
-                                    Cancel Processing
-                                  </Button>
-                                )}
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button variant="destructive" size="sm">
-                                      <Trash2 className="mr-1 h-4 w-4" />
-                                      Delete Script
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        This action cannot be undone. The answer script and all associated data will be permanently deleted.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() => handleDeleteScript(script.id)}
-                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                      >
-                                        Delete
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  onClick={() => window.open(script.script_image_url, '_blank')}
-                                >
-                                  View Image
-                                </Button>
+                                {renderActionButtons(script)}
                               </div>
                             </div>
                             
@@ -901,4 +807,77 @@ const GradingPage = () => {
                                             <div key={answer.id} className="border-b pb-3">
                                               <p className="font-medium">Question: {answer.question?.question_text}</p>
                                               <p className="text-sm mt-1">
-                                                <span className="font-medium">Score:</span> {
+                                                <span className="font-medium">Score:</span> {answer.assigned_grade} / {answer.question?.marks}
+                                              </p>
+                                              <p className="text-sm italic mt-1">"{answer.llm_explanation}"</p>
+                                              {answer.flags && answer.flags.length > 0 && (
+                                                <div className="mt-2 p-2 bg-red-50 rounded-md">
+                                                  <p className="text-xs font-medium text-red-700">Flags:</p>
+                                                  <ul className="text-xs text-red-600 list-disc list-inside">
+                                                    {answer.flags.map((flag: string, i: number) => (
+                                                      <li key={i}>{flag}</li>
+                                                    ))}
+                                                  </ul>
+                                                </div>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                        <div className="flex justify-between items-center pt-2 mt-2 border-t">
+                                          <p className="font-medium">Total Score:</p>
+                                          <p className="font-bold text-lg">
+                                            {gradingResults[script.id].reduce((total: number, answer: any) => 
+                                              total + (answer.assigned_grade || 0), 0).toFixed(1)} / {selectedExamination?.total_marks}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center justify-center p-4">
+                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                        Loading grading results...
+                                      </div>
+                                    )}
+                                  </CollapsibleContent>
+                                </Collapsible>
+                              </div>
+                            )}
+                            
+                            {script.flags && script.flags.length > 0 && (
+                              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                                <p className="text-sm font-semibold text-red-800 flex items-center">
+                                  <Flag className="h-4 w-4 mr-2" /> Potential Misconduct Flags:
+                                </p>
+                                <ul className="mt-1 text-sm text-red-700 list-disc list-inside">
+                                  {script.flags.map((flag, index) => (
+                                    <li key={index}>{flag}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-10">
+                    <p className="text-muted-foreground">No answer scripts found for this examination. Upload your first script to get started.</p>
+                    <Button 
+                      onClick={() => setIsUploadOpen(true)} 
+                      className="mt-4 bg-scriptsense-primary"
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload First Script
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default GradingPage;
