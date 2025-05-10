@@ -1,4 +1,3 @@
-
 export interface Teacher {
   id: string;
   name: string;
@@ -46,15 +45,13 @@ export interface AnswerScript {
   student_id: string;
   examination_id: string;
   script_image_url: string;
-  processing_status: 'uploaded' | 'ocr_pending' | 'ocr_complete' | 'grading_pending' | 'grading_complete' | 'error';
   upload_timestamp: string;
-  student?: Student;
+  processing_status: 'uploaded' | 'ocr_pending' | 'ocr_complete' | 'grading_pending' | 'grading_complete' | 'error';
+  full_extracted_text?: string;
   custom_instructions?: string;
   enable_misconduct_detection?: boolean;
-  flags?: string[];
+  illustration_url?: string;
   script_number?: number;
-  full_extracted_text?: string;
-  combined_extracted_text?: string;
 }
 
 export interface Answer {
@@ -78,11 +75,22 @@ export interface GradingResult {
   score: number;
   explanation: string;
   flags?: string[];
+  diagramEvaluation?: string | null;
 }
 
 export interface OCRResult {
   text: string;
-  confidence?: number;
+  confidence: number;
+}
+
+export interface SegmentationResult {
+  method: string;
+  segments: string[];
+  confidence: number;
+  metadata?: {
+    containsDiagrams?: boolean[];
+    diagramDescriptions?: string[];
+  };
 }
 
 export interface User {
@@ -91,8 +99,14 @@ export interface User {
   role: 'admin' | 'teacher';
 }
 
-export interface SegmentationResult {
-  method: string;
-  segments: string[];
-  confidence: number;
+export interface CreateAnswerScriptParams {
+  student_id: string;
+  examination_id: string;
+  script_image_url: string;
+  processing_status: string;
+  upload_timestamp: string;
+  custom_instructions?: string;
+  enable_misconduct_detection?: boolean;
+  illustration_url?: string;
+  script_number?: number;
 }
