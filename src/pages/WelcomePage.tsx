@@ -3,17 +3,19 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { FileText, CheckCircle, FileImage, BarChart, Users, ArrowRight, Star, School, Code } from 'lucide-react';
 import { HeroCarousel } from '@/components/home/HeroCarousel';
-import { Logo } from '@/components/ui/logo';
 
 const WelcomePage = () => {
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-50 border-b dark:border-gray-800">
+      <header className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-sm z-50 border-b">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Logo size="lg" />
+              <div className="bg-scriptsense-primary text-white p-2 rounded">
+                <School size={24} />
+              </div>
+              <span className="text-2xl font-bold text-scriptsense-primary">scriptSense</span>
             </div>
             <div className="flex items-center space-x-4">
               <Link to="/signin">
@@ -28,16 +30,16 @@ const WelcomePage = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-4 bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800">
+      <section className="pt-32 pb-20 px-4 bg-gradient-to-b from-blue-50 to-white">
         <div className="container mx-auto max-w-7xl">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-8">
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-gray-900 dark:text-white">
-                ScriptSense: 
-                <span className="block text-scriptsense-primary mt-2">Redefining Exam Grading</span>
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-gray-900">
+                Let's Create a Brilliant
+                <span className="block text-scriptsense-primary mt-2">Future in Education</span>
               </h1>
-              <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl">
-                Where Handwritten Exams Meet Smart Grading! A revolutionary AI-powered platform designed to transform how educators grade and evaluate student work.
+              <p className="text-lg text-gray-600 max-w-2xl">
+                scriptSense is a revolutionary AI-powered platform designed to transform how educators grade and evaluate student work, making assessment smarter and more efficient.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link to="/signup">
@@ -47,7 +49,7 @@ const WelcomePage = () => {
                   </Button>
                 </Link>
                 <Link to="/signin">
-                  <Button variant="outline" className="w-full sm:w-auto px-8 py-6 text-lg dark:text-white dark:border-gray-600">
+                  <Button variant="outline" className="w-full sm:w-auto px-8 py-6 text-lg">
                     Learn More
                   </Button>
                 </Link>
@@ -63,28 +65,28 @@ const WelcomePage = () => {
           <div className="grid grid-cols-3 gap-8 mt-20 max-w-3xl mx-auto text-center">
             <div>
               <div className="text-3xl font-bold text-scriptsense-primary">60+</div>
-              <div className="text-gray-600 dark:text-gray-300 mt-2">Teachers</div>
+              <div className="text-gray-600 mt-2">Teachers</div>
             </div>
             <div>
               <div className="text-3xl font-bold text-scriptsense-primary">2.5k+</div>
-              <div className="text-gray-600 dark:text-gray-300 mt-2">Students</div>
+              <div className="text-gray-600 mt-2">Students</div>
             </div>
             <div>
               <div className="text-3xl font-bold text-scriptsense-primary">95%</div>
-              <div className="text-gray-600 dark:text-gray-300 mt-2">Satisfaction</div>
+              <div className="text-gray-600 mt-2">Satisfaction</div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="py-20 px-4 bg-white dark:bg-gray-900">
+      <section className="py-20 px-4 bg-white">
         <div className="container mx-auto max-w-7xl">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
+            <h2 className="text-3xl font-bold text-gray-900">
               Transform Your Grading Process
             </h2>
-            <p className="mt-4 text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+            <p className="mt-4 text-gray-600 max-w-2xl mx-auto">
               Our AI-powered platform streamlines assessment workflows and ensures consistent evaluation.
             </p>
           </div>
@@ -94,58 +96,50 @@ const WelcomePage = () => {
               {
                 icon: FileImage,
                 title: "Smart OCR Technology",
-                description: "Advanced text extraction from handwritten scripts with high accuracy",
-                link: "/signup"
+                description: "Advanced text extraction from handwritten scripts with high accuracy"
               },
               {
                 icon: Code,
                 title: "AI-Powered Analysis",
-                description: "Intelligent evaluation using state-of-the-art language models",
-                link: "/signup"
+                description: "Intelligent evaluation using state-of-the-art language models"
               },
               {
                 icon: CheckCircle,
                 title: "Instant Feedback",
-                description: "Quick and consistent grading with detailed explanations",
-                link: "/signup"
+                description: "Quick and consistent grading with detailed explanations"
               },
               {
                 icon: Users,
                 title: "Student Management",
-                description: "Efficient organization of student data and performance tracking",
-                link: "/signup"
+                description: "Efficient organization of student data and performance tracking"
               },
               {
                 icon: BarChart,
                 title: "Analytics Dashboard",
-                description: "Comprehensive insights into student and class performance",
-                link: "/signup"
+                description: "Comprehensive insights into student and class performance"
               },
               {
                 icon: Star,
                 title: "Quality Assurance",
-                description: "Maintain grading consistency across all assessments",
-                link: "/signup"
+                description: "Maintain grading consistency across all assessments"
               }
             ].map((feature, index) => (
-              <Link key={index} to={feature.link} className="block">
-                <div className="group p-6 rounded-xl border bg-white dark:bg-gray-800 dark:border-gray-700 hover:shadow-lg transition-all cursor-pointer h-full">
-                  <div className="flex flex-col items-start">
-                    <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-scriptsense-primary mb-4">
-                      <feature.icon size={24} />
-                    </div>
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{feature.title}</h3>
-                    <p className="text-gray-600 dark:text-gray-300">{feature.description}</p>
+              <div key={index} className="group p-6 rounded-xl border bg-white hover:shadow-lg transition-all">
+                <div className="flex flex-col items-start">
+                  <div className="p-3 rounded-lg bg-blue-50 text-scriptsense-primary mb-4">
+                    <feature.icon size={24} />
                   </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{feature.title}</h3>
+                  <p className="text-gray-600">{feature.description}</p>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-4 bg-scriptsense-primary dark:bg-scriptsense-primary/90">
+      <section className="py-20 px-4 bg-scriptsense-primary">
         <div className="container mx-auto max-w-4xl text-center">
           <h2 className="text-3xl font-bold text-white mb-6">
             Ready to Transform Your Assessment Process?
@@ -168,7 +162,10 @@ const WelcomePage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center space-x-2 mb-4">
-                <Logo variant="white" />
+                <div className="bg-white p-2 rounded">
+                  <School size={20} className="text-scriptsense-primary" />
+                </div>
+                <span className="text-xl font-bold text-white">scriptSense</span>
               </div>
               <p className="text-gray-400">
                 Transforming education assessment with AI-powered solutions.
