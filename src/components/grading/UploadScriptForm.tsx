@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import { Student } from '@/types/supabase';
-import { Upload, Loader2, QrCode, UserPlus } from 'lucide-react';
+import { Upload, Loader2, QrCode, UserPlus, Eye, EyeOff } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { scanBarcodeFromImage } from '@/lib/barcodeScanner';
@@ -54,6 +54,7 @@ export function UploadScriptForm({ examinationId, students, onSuccess }: UploadS
   const { user } = useAuth();
   const [isUploading, setIsUploading] = useState(false);
   const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
   const [scanningQrCode, setScanningQrCode] = useState(false);
   const [qrCodeResult, setQrCodeResult] = useState<string | null>(null);
   const [matchedStudent, setMatchedStudent] = useState<Student | null>(null);
@@ -79,6 +80,7 @@ export function UploadScriptForm({ examinationId, students, onSuccess }: UploadS
         reader.onload = (event) => {
           const previewUrl = event.target?.result as string;
           setFilePreview(previewUrl);
+          setShowPreview(true); // Show preview when new file is uploaded
           
           // If QR code mode is selected, attempt to scan the barcode
           if (identificationMethod === 'qr') {
@@ -89,6 +91,7 @@ export function UploadScriptForm({ examinationId, students, onSuccess }: UploadS
       } else {
         // For PDF files, just clear the preview
         setFilePreview(null);
+        setShowPreview(false);
       }
     }
   };
@@ -209,226 +212,263 @@ export function UploadScriptForm({ examinationId, students, onSuccess }: UploadS
   
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="identification_method"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Student Identification Method</FormLabel>
-              <FormControl>
-                <Tabs 
-                  defaultValue={field.value} 
-                  onValueChange={field.onChange}
-                  className="w-full"
-                >
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="manual" disabled={isUploading}>
-                      <UserPlus className="mr-2 h-4 w-4" />
-                      Manual Selection
-                    </TabsTrigger>
-                    <TabsTrigger value="qr" disabled={isUploading}>
-                      <QrCode className="mr-2 h-4 w-4" />
-                      QR Code Scan
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        {identificationMethod === 'manual' && (
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <FormField
+              control={form.control}
+              name="identification_method"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Student Identification Method</FormLabel>
+                  <FormControl>
+                    <Tabs 
+                      defaultValue={field.value} 
+                      onValueChange={field.onChange}
+                      className="w-full"
+                    >
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="manual" disabled={isUploading}>
+                          <UserPlus className="mr-2 h-4 w-4" />
+                          Manual Selection
+                        </TabsTrigger>
+                        <TabsTrigger value="qr" disabled={isUploading}>
+                          <QrCode className="mr-2 h-4 w-4" />
+                          QR Code Scan
+                        </TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            {identificationMethod === 'manual' && (
+              <FormField
+                control={form.control}
+                name="student_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Student</FormLabel>
+                    <FormControl>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        disabled={isUploading}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a student" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {students.map((student) => (
+                            <SelectItem key={student.id} value={student.id}>
+                              {student.name} ({student.unique_student_id})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+            
+            {identificationMethod === 'qr' && (
+              <div className="space-y-4">
+                <div className="p-4 border rounded-md bg-muted/40">
+                  <h3 className="font-medium mb-2">QR Code Scanning</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Upload an image containing a QR code with the student ID. The system will automatically
+                    detect and match the student.
+                  </p>
+                  
+                  {qrCodeResult && (
+                    <div className="mb-4">
+                      <p className="text-sm font-medium">Detected Code:</p>
+                      <p className="text-sm bg-muted p-2 rounded">{qrCodeResult}</p>
+                    </div>
+                  )}
+                  
+                  {matchedStudent && (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-md mb-4">
+                      <p className="text-sm font-medium text-green-800">Student Matched:</p>
+                      <p className="text-sm text-green-700">{matchedStudent.name} ({matchedStudent.unique_student_id})</p>
+                    </div>
+                  )}
+                  
+                  {!matchedStudent && qrCodeResult && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-md mb-4">
+                      <p className="text-sm font-medium text-amber-800">No student matched with ID: {qrCodeResult}</p>
+                      <p className="text-sm text-amber-700">Please select a student manually or try another image.</p>
+                    </div>
+                  )}
+                  
+                  {!matchedStudent && identificationMethod === 'qr' && (
+                    <FormField
+                      control={form.control}
+                      name="student_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Backup: Select Student Manually</FormLabel>
+                          <FormControl>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                              disabled={isUploading}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select a student" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {students.map((student) => (
+                                  <SelectItem key={student.id} value={student.id}>
+                                    {student.name} ({student.unique_student_id})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <FormField
+              control={form.control}
+              name="script_file"
+              render={({ field: { onChange, value, ...rest } }) => (
+                <FormItem>
+                  <FormLabel>Answer Script File</FormLabel>
+                  <FormControl>
+                    <div className="space-y-4">
+                      <div className="w-full items-center gap-1.5">
+                        <Label htmlFor="script-file">Upload File</Label>
+                        <Input
+                          id="script-file"
+                          type="file"
+                          accept="image/png,image/jpeg,image/jpg,application/pdf"
+                          disabled={isUploading || scanningQrCode}
+                          onChange={(e) => {
+                            onChange(e.target.files);
+                            handleFileChange(e);
+                          }}
+                          {...rest}
+                        />
+                      </div>
+                      {filePreview && (
+                        <div className="mt-4">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="mb-2"
+                            onClick={() => setShowPreview(!showPreview)}
+                          >
+                            {showPreview ? (
+                              <>
+                                <EyeOff className="h-4 w-4 mr-2" />
+                                Hide Preview
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="h-4 w-4 mr-2" />
+                                Show Preview
+                              </>
+                            )}
+                          </Button>
+                          {showPreview && (
+                            <div className="border rounded-md overflow-hidden bg-muted/10">
+                              <img 
+                                src={filePreview} 
+                                alt="Script preview" 
+                                className="w-full h-auto max-h-[400px] object-contain"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Accepted file types: JPEG, PNG, PDF. Maximum size: 5MB.
+                  </p>
+                </FormItem>
+              )}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
             control={form.control}
-            name="student_id"
+            name="custom_instructions"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Student</FormLabel>
+                <FormLabel>Custom Grading Instructions (Optional)</FormLabel>
                 <FormControl>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                    disabled={isUploading}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a student" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {students.map((student) => (
-                        <SelectItem key={student.id} value={student.id}>
-                          {student.name} ({student.unique_student_id})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Textarea
+                    placeholder="Enter any specific instructions for the AI grading engine, such as: 'Focus on concept understanding rather than exact wording' or 'Pay attention to mathematical notation correctness'"
+                    className="min-h-[120px]"
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-        )}
-        
-        {identificationMethod === 'qr' && (
+
           <div className="space-y-4">
-            <div className="p-4 border rounded-md bg-muted/40">
-              <h3 className="font-medium mb-2">QR Code Scanning</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Upload an image containing a QR code with the student ID. The system will automatically
-                detect and match the student.
-              </p>
-              
-              {qrCodeResult && (
-                <div className="mb-4">
-                  <p className="text-sm font-medium">Detected Code:</p>
-                  <p className="text-sm bg-muted p-2 rounded">{qrCodeResult}</p>
-                </div>
-              )}
-              
-              {matchedStudent && (
-                <div className="p-3 bg-green-50 border border-green-200 rounded-md mb-4">
-                  <p className="text-sm font-medium text-green-800">Student Matched:</p>
-                  <p className="text-sm text-green-700">{matchedStudent.name} ({matchedStudent.unique_student_id})</p>
-                </div>
-              )}
-              
-              {!matchedStudent && qrCodeResult && (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-md mb-4">
-                  <p className="text-sm font-medium text-amber-800">No student matched with ID: {qrCodeResult}</p>
-                  <p className="text-sm text-amber-700">Please select a student manually or try another image.</p>
-                </div>
-              )}
-              
-              {!matchedStudent && identificationMethod === 'qr' && (
-                <FormField
-                  control={form.control}
-                  name="student_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Backup: Select Student Manually</FormLabel>
-                      <FormControl>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                          disabled={isUploading}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select a student" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {students.map((student) => (
-                              <SelectItem key={student.id} value={student.id}>
-                                {student.name} ({student.unique_student_id})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-            </div>
-          </div>
-        )}
-        
-        <FormField
-          control={form.control}
-          name="script_file"
-          render={({ field: { onChange, value, ...rest } }) => (
-            <FormItem>
-              <FormLabel>Answer Script File</FormLabel>
-              <FormControl>
-                <div className="space-y-4">
-                  <div className="grid w-full max-w-sm items-center gap-1.5">
-                    <Label htmlFor="script-file">Upload File</Label>
-                    <Input
-                      id="script-file"
-                      type="file"
-                      accept="image/png,image/jpeg,image/jpg,application/pdf"
-                      disabled={isUploading || scanningQrCode}
-                      onChange={(e) => {
-                        onChange(e.target.files);
-                        handleFileChange(e);
-                      }}
-                      {...rest}
-                    />
+            <FormField
+              control={form.control}
+              name="enable_misconduct_detection"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start justify-between rounded-lg border p-4 shadow-sm h-full">
+                  <div className="space-y-1">
+                    <FormLabel className="text-base">Academic Misconduct Detection</FormLabel>
+                    <FormDescription className="text-sm text-muted-foreground">
+                      Enable AI to flag potential plagiarism or cheating in student answers
+                    </FormDescription>
                   </div>
-                  {filePreview && (
-                    <div className="mt-4 border rounded-md overflow-hidden">
-                      <img 
-                        src={filePreview} 
-                        alt="Script preview" 
-                        className="w-full h-auto max-h-[300px] object-contain"
-                      />
-                    </div>
-                  )}
-                </div>
-              </FormControl>
-              <FormMessage />
-              <p className="text-xs text-muted-foreground mt-1">
-                Accepted file types: JPEG, PNG, PDF. Maximum size: 5MB.
-              </p>
-            </FormItem>
-          )}
-        />
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          </div>
+        </div>
         
-        <FormField
-          control={form.control}
-          name="custom_instructions"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Custom Grading Instructions (Optional)</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="Enter any specific instructions for the AI grading engine, such as: 'Focus on concept understanding rather than exact wording' or 'Pay attention to mathematical notation correctness'"
-                  className="min-h-[100px]"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
-          name="enable_misconduct_detection"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-              <div className="space-y-0.5">
-                <FormLabel>Academic Misconduct Detection</FormLabel>
-                <FormDescription className="text-xs text-muted-foreground">
-                  Enable AI to flag potential plagiarism or cheating in student answers
-                </FormDescription>
-              </div>
-              <FormControl>
-                <Switch
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                />
-              </FormControl>
-            </FormItem>
-          )}
-        />
-        
-        <div className="flex justify-end pt-4">
-          <Button type="submit" className="bg-scriptsense-primary" disabled={isUploading || scanningQrCode}>
+        <div className="flex justify-end pt-6">
+          <Button 
+            type="submit" 
+            className="bg-scriptsense-primary px-6" 
+            disabled={isUploading || scanningQrCode}
+            size="lg"
+          >
             {isUploading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 Uploading...
               </>
             ) : scanningQrCode ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 Scanning QR Code...
               </>
             ) : (
               <>
-                <Upload className="mr-2 h-4 w-4" />
+                <Upload className="mr-2 h-5 w-5" />
                 Upload Script
               </>
             )}
