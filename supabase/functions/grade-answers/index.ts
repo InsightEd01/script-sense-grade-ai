@@ -9,7 +9,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const GEMINI_API_KEY = "AIzaSyDI-Dlnosnc5js38cj8d6O-y-Icl2EXzV0";
+const GEMINI_API_KEY = "AIzaSyB1kwBAyXJHDJI9QDScFsDNOpIPaFitDBY";
 const MODEL_NAME = "gemini-1.5-flash";
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);

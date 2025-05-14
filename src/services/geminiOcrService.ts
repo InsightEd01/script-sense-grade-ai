@@ -1,7 +1,7 @@
 
 import { OCRResult } from '@/types/supabase';
 
-const GEMINI_API_KEY = "AIzaSyDI-Dlnosnc5js38cj8d6O-y-Icl2EXzV0";
+const GEMINI_API_KEY = "AIzaSyB1kwBAyXJHDJI9QDScFsDNOpIPaFitDBY";
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
 
 interface GeminiApiResponse {

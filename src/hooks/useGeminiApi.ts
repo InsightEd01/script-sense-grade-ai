@@ -3,7 +3,7 @@ import { useState, useCallback } from 'react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { GradingResult } from '@/types/supabase';
 
-const GEMINI_API_KEY = 'AIzaSyDI-Dlnosnc5js38cj8d6O-y-Icl2EXzV0';
+const GEMINI_API_KEY = 'AIzaSyB1kwBAyXJHDJI9QDScFsDNOpIPaFitDBY';
 const MODEL_NAME = 'gemini-1.5-flash';
 
 export function useGeminiApi() {
