@@ -113,6 +113,7 @@ const App = () => (
             
             {/* Catch-all and redirects */}
             <Route path="/index" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/index.html" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </TooltipProvider>
