@@ -1,4 +1,3 @@
-
 import { OCRResult } from '@/types/supabase';
 
 const GEMINI_API_KEY = "AIzaSyB1kwBAyXJHDJI9QDScFsDNOpIPaFitDBY";
@@ -20,31 +19,27 @@ interface GeminiApiError {
   };
 }
 
+async function getBase64FromUrl(url: string): Promise<string> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch image from URL: ${response.statusText}`);
+  }
+  const arrayBuffer = await response.arrayBuffer();
+  return btoa(
+    new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+  );
+}
+
 export async function extractTextWithGemini(imageBase64OrUrl: string): Promise<OCRResult> {
   try {
-    let base64Data;
-
-    if (imageBase64OrUrl.startsWith('http')) {
-      // If the input is a URL, fetch the image and convert it to Base64
-      const response = await fetch(imageBase64OrUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch image from URL: ${response.statusText}`);
-      }
-      const arrayBuffer = await response.arrayBuffer();
-      base64Data = btoa(
-        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-      );
-    } else {
-      // Clean the base64 data if it includes the data URL prefix
-      base64Data = imageBase64OrUrl.includes('base64,') 
+    console.log('Starting text extraction with Gemini');
+    
+    // Get base64 data whether input is URL or base64
+    let base64Data = imageBase64OrUrl.startsWith('http') 
+      ? await getBase64FromUrl(imageBase64OrUrl)
+      : imageBase64OrUrl.includes('base64,')
         ? imageBase64OrUrl.split('base64,')[1]
         : imageBase64OrUrl;
-    }
-
-    // Ensure we don't exceed maximum payload size
-    if (base64Data.length > 10000000) { // 10MB limit
-      throw new Error('Image file size too large for Gemini API');
-    }
 
     const requestBody = {
       contents: [
@@ -63,7 +58,7 @@ export async function extractTextWithGemini(imageBase64OrUrl: string): Promise<O
         }
       ],
       generationConfig: {
-        temperature: 0.1, // Low temperature for more deterministic output
+        temperature: 0.1,
         maxOutputTokens: 2048,
       }
     };
@@ -83,7 +78,6 @@ export async function extractTextWithGemini(imageBase64OrUrl: string): Promise<O
         const errorData: GeminiApiError = await response.json();
         errorMessage += ` - ${errorData.error?.message || 'Unknown error'}`;
       } catch (e) {
-        // If we can't parse JSON, use text
         const errorText = await response.text();
         errorMessage += ` - ${errorText.substring(0, 100)}`;
       }
@@ -92,7 +86,6 @@ export async function extractTextWithGemini(imageBase64OrUrl: string): Promise<O
 
     const data: GeminiApiResponse = await response.json();
 
-    // Extract the text from the response
     const extractedText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No text extracted';
     console.log('OCR successful, extracted text length:', extractedText.length);
 

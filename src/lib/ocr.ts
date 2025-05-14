@@ -1,4 +1,3 @@
-
 import { extractTextWithGemini } from '@/services/geminiOcrService';
 import { OCRResult, Question, SegmentationResult } from '@/types/supabase';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,32 +8,23 @@ async function retryOperation<T>(
   maxRetries: number = 3,
   delay: number = 1000
 ): Promise<T> {
-  let lastError;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await operation();
     } catch (error) {
-      lastError = error;
-      console.warn(`Attempt ${attempt} failed, retrying in ${delay}ms...`, error);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      delay *= 2; // Exponential backoff
+      if (attempt === maxRetries) throw error;
+      await new Promise(resolve => setTimeout(resolve, delay * attempt));
     }
   }
-  throw lastError;
+  throw new Error('Max retries exceeded');
 }
 
 export async function performOCR(imageUrl: string): Promise<OCRResult> {
   try {
     console.log('Starting OCR process with Gemini for image:', imageUrl);
 
-    if (!validateImage(imageUrl)) {
+    if (!imageUrl || !(imageUrl.startsWith('http') || imageUrl.startsWith('data:'))) {
       throw new Error('Invalid image URL provided for OCR');
-    }
-
-    // Check if the image is a large base64 string
-    if (imageUrl.startsWith('data:') && imageUrl.length > 10000000) { // 10MB limit
-      console.warn('Image exceeds recommended size limit, attempting to resize');
-      imageUrl = await resizeImage(imageUrl);
     }
 
     // Use retryOperation for better reliability
