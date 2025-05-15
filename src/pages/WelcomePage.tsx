@@ -35,8 +35,8 @@ const WelcomePage = () => {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-8">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-gray-900">
-                Let's Create a Brilliant
-                <span className="block text-scriptsense-primary mt-2">Future in Education</span>
+                Redefining Grading
+                <span className="block text-scriptsense-primary mt-2">Handwritten Exams Meet Smart Grading!</span>
               </h1>
               <p className="text-lg text-gray-600 max-w-2xl">
                 scriptSense is a revolutionary AI-powered platform designed to transform how educators grade and evaluate student work, making assessment smarter and more efficient.
