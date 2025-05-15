@@ -13,6 +13,7 @@ import WelcomePage from "./pages/WelcomePage";
 import SignInPage from "./pages/auth/SignInPage";
 import SignUpPage from "./pages/auth/SignUpPage";
 import NotFound from "./pages/NotFound";
+import LearnMorePage from "./pages/LearnMorePage";
 
 // Dashboard pages
 import DashboardPage from "./pages/dashboard/DashboardPage";
@@ -47,6 +48,7 @@ const App = () => (
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<WelcomePage />} />
+            <Route path="/learn" element={<LearnMorePage />} />
             <Route path="/signin" element={<SignInPage />} />
             <Route path="/signup" element={<SignUpPage />} />
             

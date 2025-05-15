@@ -11,7 +11,7 @@ import {
   Upload, 
   Search, 
   ChevronLeft, 
-  FileText, 
+  Pen, 
   CheckCircle, 
   XCircle, 
   Clock, 
@@ -619,7 +619,7 @@ const GradingPage = () => {
                         <div className="flex flex-col md:flex-row">
                           <div className="w-full md:w-1/4 p-4 bg-muted/30 flex items-center justify-center">
                             <div className="text-center">
-                              <FileText className="h-10 w-10 mx-auto text-muted-foreground" />
+                              <Pen className="h-10 w-10 mx-auto text-muted-foreground" />
                               <h3 className="mt-2 font-medium">
                                 {script.student?.name || 'Unknown Student'}
                               </h3>

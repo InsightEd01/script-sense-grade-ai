@@ -1,7 +1,6 @@
-
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { FileText, CheckCircle, FileImage, BarChart, Users, ArrowRight, Star, School, Code } from 'lucide-react';
+import { Pen, CheckCircle, FileImage, BarChart, Users, ArrowRight, Star, School, Code } from 'lucide-react';
 import { HeroCarousel } from '@/components/home/HeroCarousel';
 
 const WelcomePage = () => {
@@ -13,7 +12,7 @@ const WelcomePage = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <div className="bg-scriptsense-primary text-white p-2 rounded">
-                <School size={24} />
+                <Pen size={24} />
               </div>
               <span className="text-2xl font-bold text-scriptsense-primary">scriptSense</span>
             </div>
@@ -48,7 +47,7 @@ const WelcomePage = () => {
                     <ArrowRight className="ml-2" />
                   </Button>
                 </Link>
-                <Link to="/signin">
+                <Link to="/learn">
                   <Button variant="outline" className="w-full sm:w-auto px-8 py-6 text-lg">
                     Learn More
                   </Button>
@@ -163,7 +162,7 @@ const WelcomePage = () => {
             <div>
               <div className="flex items-center space-x-2 mb-4">
                 <div className="bg-white p-2 rounded">
-                  <School size={20} className="text-scriptsense-primary" />
+                  <Pen size={20} className="text-scriptsense-primary" />
                 </div>
                 <span className="text-xl font-bold text-white">scriptSense</span>
               </div>

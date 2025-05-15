@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FileText, Loader2 } from 'lucide-react';
+import { Pen, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -61,7 +61,7 @@ const SignInPage = () => {
         <div className="flex justify-center mb-8">
           <div className="flex items-center space-x-2">
             <div className="bg-scriptsense-primary text-white p-2 rounded">
-              <FileText size={24} />
+              <Pen size={24} />
             </div>
             <span className="text-2xl font-bold text-scriptsense-primary">scriptSense</span>
           </div>

@@ -282,6 +282,31 @@ export async function createQuestion(question: {
   return data as Question;
 }
 
+export async function updateQuestion(
+  questionId: string,
+  updates: {
+    question_text?: string;
+    model_answer?: string;
+    model_answer_source?: 'uploaded' | 'ai_generated';
+    marks?: number;
+    tolerance?: number;
+  }
+): Promise<Question> {
+  const { data, error } = await supabase
+    .from('questions')
+    .update(updates)
+    .eq('id', questionId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating question:', error);
+    throw error;
+  }
+
+  return data as Question;
+}
+
 // Teachers
 export async function getTeachers(): Promise<Teacher[]> {
   try {

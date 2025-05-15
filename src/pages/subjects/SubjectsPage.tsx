@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/use-toast';
-import { PlusCircle, Search, Edit, Trash2, FileText } from 'lucide-react';
+import { PlusCircle, Search, Edit, Trash2, Pen } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Loading } from '@/components/ui/loading';
@@ -129,7 +129,7 @@ const SubjectsPage = () => {
                             className="h-8 w-8"
                             onClick={() => navigate(`/examinations?subjectId=${subject.id}`)}
                           >
-                            <FileText className="h-4 w-4" />
+                            <Pen className="h-4 w-4" />
                           </Button>
                           <Button 
                             variant="ghost" 

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/use-toast';
-import { PlusCircle, Search, ChevronLeft, Book, Calendar, CheckCircle2, FileText } from 'lucide-react';
+import { PlusCircle, Search, ChevronLeft, Book, Calendar, CheckCircle2, Pen } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Loading } from '@/components/ui/loading';
@@ -239,7 +239,7 @@ const ExaminationsPage = () => {
                             size="sm"
                             onClick={() => navigate(`/questions?examinationId=${examination.id}`)}
                           >
-                            <FileText className="mr-1 h-4 w-4" />
+                            <Pen className="mr-1 h-4 w-4" />
                             Questions
                           </Button>
                           <Button 

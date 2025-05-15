@@ -10,8 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { useGeminiApi } from '@/hooks/useGeminiApi';
-import { createQuestion } from '@/services/dataService';
+import { createQuestion, updateQuestion } from '@/services/dataService';
 import { useToast } from '@/hooks/use-toast';
+import { Question } from '@/types/supabase';
 
 const formSchema = z.object({
   question_text: z.string().min(1, 'Question text is required'),
@@ -26,9 +27,16 @@ type QuestionFormValues = z.infer<typeof formSchema>;
 interface QuestionFormProps {
   examinationId: string;
   onSuccess: () => void;
+  existingQuestion?: Question;
+  mode?: 'create' | 'edit';
 }
 
-export const QuestionForm = ({ examinationId, onSuccess }: QuestionFormProps) => {
+export const QuestionForm = ({ 
+  examinationId, 
+  onSuccess, 
+  existingQuestion, 
+  mode = 'create' 
+}: QuestionFormProps) => {
   const [answerTab, setAnswerTab] = useState<'manual' | 'ai'>('manual');
   const [isGeneratingAnswer, setIsGeneratingAnswer] = useState(false);
   const [generatedAnswer, setGeneratedAnswer] = useState('');
@@ -39,11 +47,11 @@ export const QuestionForm = ({ examinationId, onSuccess }: QuestionFormProps) =>
   const form = useForm<QuestionFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      question_text: '',
-      model_answer: '',
-      marks: 10,
-      tolerance: 0.7,
-      model_answer_source: 'uploaded'
+      question_text: existingQuestion?.question_text || '',
+      model_answer: existingQuestion?.model_answer || '',
+      marks: existingQuestion?.marks || 10,
+      tolerance: existingQuestion?.tolerance || 0.7,
+      model_answer_source: existingQuestion?.model_answer_source || 'uploaded'
     }
   });
 
@@ -72,23 +80,46 @@ export const QuestionForm = ({ examinationId, onSuccess }: QuestionFormProps) =>
 
   const onSubmit = async (values: QuestionFormValues) => {
     try {
-      await createQuestion({
-        examination_id: examinationId,
-        question_text: values.question_text,
-        model_answer: values.model_answer,
-        model_answer_source: values.model_answer_source,
-        marks: values.marks,
-        tolerance: values.tolerance
-      });
+      if (mode === 'create') {
+        await createQuestion({
+          examination_id: examinationId,
+          question_text: values.question_text,
+          model_answer: values.model_answer,
+          model_answer_source: values.model_answer_source,
+          marks: values.marks,
+          tolerance: values.tolerance
+        });
+      } else {
+        if (!existingQuestion) {
+          throw new Error('No existing question provided for editing');
+        }
+        await updateQuestion(existingQuestion.id, {
+          question_text: values.question_text,
+          model_answer: values.model_answer,
+          model_answer_source: values.model_answer_source,
+          marks: values.marks,
+          tolerance: values.tolerance
+        });
+      }
       
       onSuccess();
-      form.reset();
-      setGeneratedAnswer('');
+      
+      if (mode === 'create') {
+        form.reset();
+        setGeneratedAnswer('');
+      }
+      
+      toast({
+        title: mode === 'create' ? 'Question Created' : 'Question Updated',
+        description: mode === 'create' 
+          ? 'Your new question has been created successfully'
+          : 'The question has been updated successfully'
+      });
     } catch (error) {
-      console.error('Error creating question:', error);
+      console.error('Error saving question:', error);
       toast({
         title: 'Error',
-        description: 'Failed to create question. Please try again.',
+        description: `Failed to ${mode} question. Please try again.`,
         variant: 'destructive'
       });
     }
@@ -232,7 +263,7 @@ export const QuestionForm = ({ examinationId, onSuccess }: QuestionFormProps) =>
 
         <div className="flex justify-end space-x-2 pt-4">
           <Button type="submit">
-            Create Question
+            {mode === 'create' ? 'Create Question' : 'Save Changes'}
           </Button>
         </div>
       </form>

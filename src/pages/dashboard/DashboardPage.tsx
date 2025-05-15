@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { getSubjects, getStudents } from '@/services/dataService';
 import { Button } from '@/components/ui/button';
-import { BookOpen, FileText, Plus, User, ArrowRight } from 'lucide-react';
+import { BookOpen, Pen, Plus, User, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const DashboardPage = () => {
@@ -57,7 +57,7 @@ const DashboardPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="p-8 text-center">
-                  <FileText className="mx-auto h-12 w-12 text-muted-foreground/50" />
+                  <Pen className="mx-auto h-12 w-12 text-muted-foreground/50" />
                   <p className="mt-4 text-lg font-medium">No recent activity</p>
                   <p className="mt-2 text-muted-foreground">
                     Start by creating an examination or uploading answer scripts.

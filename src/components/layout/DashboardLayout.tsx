@@ -1,10 +1,9 @@
-
 import { useState, ReactNode } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   BookOpen, 
   Users, 
-  FileText, 
+  Pen, 
   Clipboard, 
   Home, 
   LogOut, 
@@ -53,7 +52,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Students', href: '/students', icon: Users },
     { name: 'Subjects', href: '/subjects', icon: BookOpen },
-    { name: 'Examinations', href: '/examinations', icon: FileText },
+    { name: 'Examinations', href: '/examinations', icon: Pen },
     { name: 'Grading', href: '/grading', icon: Clipboard },
     { name: 'Analytics', href: '/analytics', icon: BarChart },
     { name: 'Chat', href: '/chat', icon: MessageSquare },
@@ -83,7 +82,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <div className="flex items-center justify-between p-4 border-b">
             <Link to="/dashboard" className="flex items-center space-x-2">
               <div className="bg-scriptsense-primary text-white p-2 rounded">
-                <FileText size={20} />
+                <Pen size={20} />
               </div>
               <span className="text-xl font-bold text-scriptsense-primary">scriptSense</span>
             </Link>

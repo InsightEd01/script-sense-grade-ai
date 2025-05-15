@@ -13,6 +13,7 @@ import { Loading } from '@/components/ui/loading';
 import { useToast } from '@/hooks/use-toast';
 import { getExaminationById, getQuestionsByExamination } from '@/services/dataService';
 import { QuestionForm } from '@/components/questions/QuestionForm';
+import { Question } from '@/types/supabase';
 
 const QuestionsPage = () => {
   const location = useLocation();
@@ -20,6 +21,7 @@ const QuestionsPage = () => {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
 
   const searchParams = new URLSearchParams(location.search);
   const examinationId = searchParams.get('examinationId');
@@ -52,11 +54,19 @@ const QuestionsPage = () => {
 
   const handleCreateSuccess = () => {
     setIsFormOpen(false);
+    setEditingQuestion(null);
     refetchQuestions();
     toast({
-      title: "Question Created",
-      description: "Your new question has been successfully created"
+      title: "Success",
+      description: editingQuestion 
+        ? "Question updated successfully" 
+        : "Your new question has been successfully created"
     });
+  };
+
+  const handleEditClick = (question: Question) => {
+    setEditingQuestion(question);
+    setIsFormOpen(true);
   };
 
   const filteredQuestions = questions?.filter(question => 
@@ -88,7 +98,10 @@ const QuestionsPage = () => {
             </h1>
             <p className="text-gray-500">Create and manage questions for this examination.</p>
           </div>
-          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+          <Dialog open={isFormOpen} onOpenChange={(open) => {
+            setIsFormOpen(open);
+            if (!open) setEditingQuestion(null);
+          }}>
             <DialogTrigger asChild>
               <Button className="bg-scriptsense-primary hover:bg-blue-800">
                 <PlusCircle className="mr-2 h-4 w-4" />
@@ -97,12 +110,14 @@ const QuestionsPage = () => {
             </DialogTrigger>
             <DialogContent className="sm:max-w-[600px]">
               <DialogHeader>
-                <DialogTitle>Create New Question</DialogTitle>
+                <DialogTitle>{editingQuestion ? 'Edit Question' : 'Create New Question'}</DialogTitle>
               </DialogHeader>
               {examinationId && (
                 <QuestionForm 
                   examinationId={examinationId}
                   onSuccess={handleCreateSuccess}
+                  existingQuestion={editingQuestion}
+                  mode={editingQuestion ? 'edit' : 'create'}
                 />
               )}
             </DialogContent>
@@ -156,12 +171,7 @@ const QuestionsPage = () => {
                           variant="outline" 
                           size="icon" 
                           className="h-8 w-8"
-                          onClick={() => {
-                            toast({
-                              title: "Edit Feature",
-                              description: "Question editing will be available soon."
-                            });
-                          }}
+                          onClick={() => handleEditClick(question)}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
