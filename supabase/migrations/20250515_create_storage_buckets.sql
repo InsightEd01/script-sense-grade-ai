@@ -25,6 +25,7 @@ DROP POLICY IF EXISTS "Public Answer Scripts Access" ON storage.objects;
 DROP POLICY IF EXISTS "Public Chat Attachments Access" ON storage.objects;  
 DROP POLICY IF EXISTS "Auth Users Answer Scripts Upload" ON storage.objects;  
 DROP POLICY IF EXISTS "Auth Users Chat Attachments Upload" ON storage.objects;  
+
 -- Set up bucket policies for public access and authenticated uploads
 CREATE POLICY "Public Answer Scripts Access" 
 ON storage.objects FOR SELECT 
