@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -98,7 +97,7 @@ export const useAuthProvider = () => {
     };
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, role: 'admin' | 'teacher') => {
     try {
       setIsLoading(true);
       const { error, data } = await supabase.auth.signInWithPassword({ 
@@ -108,6 +107,23 @@ export const useAuthProvider = () => {
       
       if (error) {
         throw error;
+      }
+      
+      // Verify user role matches requested role
+      if (data.user) {
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', data.user.id)
+          .single();
+
+        if (userError) {
+          throw new Error('Failed to verify user role');
+        }
+
+        if (userData.role !== role) {
+          throw new Error(`Invalid credentials for ${role} login`);
+        }
       }
       
       toast({

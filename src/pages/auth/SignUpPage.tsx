@@ -18,9 +18,6 @@ const signUpSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
   confirmPassword: z.string(),
-  role: z.enum(['teacher', 'admin'], { 
-    required_error: "Please select a role",
-  }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match",
   path: ["confirmPassword"],
@@ -55,7 +52,7 @@ const SignUpPage = () => {
   const onSubmit = async (data: SignUpFormValues) => {
     try {
       setIsLoading(true);
-      await signUp(data.email, data.password, data.role, data.name);
+      await signUp(data.email, data.password, 'admin', data.name);
       // The signUp function now handles navigation after successful signup
     } catch (error) {
       if (error instanceof Error) {
@@ -83,9 +80,9 @@ const SignUpPage = () => {
         
         <Card className="shadow-lg border-gray-200">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold text-center">Create Account</CardTitle>
+            <CardTitle className="text-2xl font-bold text-center">Create Admin Account</CardTitle>
             <CardDescription className="text-center">
-              Enter your information to create a scriptSense account
+              Create an administrator account for your institution
             </CardDescription>
           </CardHeader>
           
@@ -161,42 +158,6 @@ const SignUpPage = () => {
                           disabled={isLoading}
                           {...field} 
                         />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="role"
-                  render={({ field }) => (
-                    <FormItem className="space-y-3">
-                      <FormLabel>Account Type</FormLabel>
-                      <FormControl>
-                        <RadioGroup
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                          className="flex flex-col space-y-1"
-                          disabled={isLoading}
-                        >
-                          <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <RadioGroupItem value="teacher" />
-                            </FormControl>
-                            <FormLabel className="font-normal">
-                              Teacher
-                            </FormLabel>
-                          </FormItem>
-                          <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <RadioGroupItem value="admin" />
-                            </FormControl>
-                            <FormLabel className="font-normal">
-                              Administrator
-                            </FormLabel>
-                          </FormItem>
-                        </RadioGroup>
                       </FormControl>
                       <FormMessage />
                     </FormItem>

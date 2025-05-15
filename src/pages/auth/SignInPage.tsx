@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Pen, Loader2 } from 'lucide-react';
@@ -11,10 +10,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const signInSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+  role: z.enum(['teacher', 'admin'], { 
+    required_error: "Please select a role",
+  }),
 });
 
 type SignInFormValues = z.infer<typeof signInSchema>;
@@ -41,15 +44,23 @@ const SignInPage = () => {
     defaultValues: {
       email: '',
       password: '',
+      role: 'teacher',
     },
   });
 
   const onSubmit = async (data: SignInFormValues) => {
     try {
       setIsLoading(true);
-      await signIn(data.email, data.password);
+      await signIn(data.email, data.password, data.role);
       // Navigation will happen automatically in the useEffect when user state changes
     } catch (error) {
+      if (error instanceof Error) {
+        toast({
+          title: "Sign in error",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
       console.error("Sign in error:", error);
       setIsLoading(false);
     }
@@ -71,7 +82,7 @@ const SignInPage = () => {
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold text-center">Sign In</CardTitle>
             <CardDescription className="text-center">
-              Enter your credentials to access your account
+              Sign in as a teacher or administrator to access your account
             </CardDescription>
           </CardHeader>
           
@@ -115,6 +126,44 @@ const SignInPage = () => {
                     </FormItem>
                   )}
                 />
+
+                <FormField
+                  control={form.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem className="space-y-3">
+                      <FormLabel>Account Type</FormLabel>
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          className="flex flex-col space-y-1"
+                          disabled={isLoading}
+                        >
+                          <FormItem className="flex items-center space-x-3 space-y-0">
+                            <FormControl>
+                              <RadioGroupItem value="teacher" />
+                            </FormControl>
+                            <FormLabel className="font-normal flex items-center justify-between w-full pr-4">
+                              <span>Teacher</span>
+                              <span className="text-xs text-muted-foreground">(Requires admin-created account)</span>
+                            </FormLabel>
+                          </FormItem>
+                          <FormItem className="flex items-center space-x-3 space-y-0">
+                            <FormControl>
+                              <RadioGroupItem value="admin" />
+                            </FormControl>
+                            <FormLabel className="font-normal flex items-center justify-between w-full pr-4">
+                              <span>Administrator</span>
+                              <span className="text-xs text-muted-foreground">(Institution admin)</span>
+                            </FormLabel>
+                          </FormItem>
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 
                 <Button 
                   type="submit" 
@@ -136,15 +185,19 @@ const SignInPage = () => {
           
           <CardFooter className="flex justify-center">
             <p className="text-sm text-gray-600">
-              Don't have an account?{" "}
+              Need an admin account?{" "}
               <Link to="/signup" className="text-scriptsense-primary font-medium hover:underline">
-                Sign up
+                Create admin account
               </Link>
             </p>
           </CardFooter>
         </Card>
+
+        <div className="mt-4 text-center text-sm text-gray-500">
+          Teachers: Please contact your administrator for login credentials
+        </div>
         
-        <div className="mt-8 text-center">
+        <div className="mt-4 text-center">
           <Link to="/" className="text-sm text-gray-600 hover:text-scriptsense-primary">
             Back to Welcome Page
           </Link>

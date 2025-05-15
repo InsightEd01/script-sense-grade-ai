@@ -18,10 +18,10 @@ const WelcomePage = () => {
             </div>
             <div className="flex items-center space-x-4">
               <Link to="/signin">
-                <Button variant="outline" className="font-medium">Sign In</Button>
+                <Button className="bg-scriptsense-primary hover:bg-blue-700 text-white font-medium">Sign In</Button>
               </Link>
               <Link to="/signup">
-                <Button className="bg-scriptsense-primary hover:bg-blue-700 text-white font-medium">Get Started</Button>
+                <Button variant="outline" className="font-medium">Create Admin Account</Button>
               </Link>
             </div>
           </div>
@@ -41,15 +41,15 @@ const WelcomePage = () => {
                 scriptSense is a revolutionary AI-powered platform designed to transform how educators grade and evaluate student work, making assessment smarter and more efficient.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Link to="/signup">
+                <Link to="/signin">
                   <Button className="w-full sm:w-auto bg-scriptsense-primary hover:bg-blue-700 text-white px-8 py-6 text-lg">
-                    Start Free Trial
+                    Sign In
                     <ArrowRight className="ml-2" />
                   </Button>
                 </Link>
-                <Link to="/learn">
+                <Link to="/signup">
                   <Button variant="outline" className="w-full sm:w-auto px-8 py-6 text-lg">
-                    Learn More
+                    Create Admin Account
                   </Button>
                 </Link>
               </div>
