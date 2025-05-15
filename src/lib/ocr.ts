@@ -38,9 +38,12 @@ export async function performOCR(imageUrl: string): Promise<OCRResult> {
 }
 
 // Process an answer script with OCR and update the database
-export async function processAnswerScript(answerScriptId: string, imageUrl: string, autoGrade: boolean = false): Promise<void> {
+export async function processAnswerScript(answerScriptId: string, imageUrls: string | string[], autoGrade: boolean = false): Promise<void> {
   try {
     console.log(`Processing answer script ${answerScriptId} with OCR`);
+    
+    // Handle single image case
+    const urls = Array.isArray(imageUrls) ? imageUrls : [imageUrls];
     
     // Update status to OCR pending
     await supabase
@@ -48,7 +51,7 @@ export async function processAnswerScript(answerScriptId: string, imageUrl: stri
       .update({ processing_status: 'ocr_pending' })
       .eq('id', answerScriptId);
       
-    // Get script details to determine if it's part of a multi-script submission
+    // Get script details
     const { data: scriptData, error: scriptError } = await supabase
       .from('answer_scripts')
       .select('*, student:students(*), examination:examinations(*)')
@@ -59,65 +62,35 @@ export async function processAnswerScript(answerScriptId: string, imageUrl: stri
       throw new Error(`Failed to retrieve script data: ${scriptError?.message || 'Script not found'}`);
     }
     
-    // Perform OCR on the current script
-    const ocrResult = await performOCR(imageUrl);
-    const currentScriptText = ocrResult.text;
-    
-    // Find all scripts for this student and examination
-    const { data: allScripts, error: scriptsError } = await supabase
-      .from('answer_scripts')
-      .select('id, script_number, full_extracted_text')
-      .eq('student_id', scriptData.student_id)
-      .eq('examination_id', scriptData.examination_id)
-      .order('script_number');
-      
-    if (scriptsError) {
-      console.error('Error retrieving all scripts:', scriptsError);
+    // Process each image in order and combine the results
+    const extractedTexts: string[] = [];
+    for (let i = 0; i < urls.length; i++) {
+      console.log(`Processing page ${i + 1} of ${urls.length}`);
+      const ocrResult = await performOCR(urls[i]);
+      extractedTexts.push(ocrResult.text);
     }
     
-    // Update the current script with the extracted text
+    // Combine all extracted texts with page markers
+    const combinedText = extractedTexts.join('\n\n--- Next Page ---\n\n');
+    
+    // Update the script with the full extracted text
     await supabase
       .from('answer_scripts')
       .update({ 
-        full_extracted_text: currentScriptText,
-        processing_status: 'ocr_complete' 
+        full_extracted_text: combinedText,
+        processing_status: 'ocr_complete',
+        page_count: urls.length
       })
       .eq('id', answerScriptId);
     
-    console.log('Updated script with extracted text, checking for multiple scripts');
-    
-    // Determine if we need to combine texts from multiple scripts
-    let combinedText = currentScriptText;
-    const validScripts = allScripts?.filter(s => s.full_extracted_text) || [];
-    
-    if (validScripts.length > 1) {
-      console.log(`Found ${validScripts.length} scripts for this student and examination, combining texts`);
-      
-      // Combine texts in order of script_number
-      combinedText = validScripts
-        .sort((a, b) => (a.script_number || 1) - (b.script_number || 1))
-        .map(s => s.full_extracted_text)
-        .filter(Boolean)
-        .join('\n\n--- Next Script ---\n\n');
-        
-      // Update the first script with the combined text
-      const firstScriptId = validScripts[0].id;
-      await supabase
-        .from('answer_scripts')
-        .update({ combined_extracted_text: combinedText })
-        .eq('id', firstScriptId);
-        
-      console.log(`Combined text from ${validScripts.length} scripts and saved to script ${firstScriptId}`);
-    }
-    
-    // Call the process-ocr edge function with the extracted text
-    console.log('Calling process-ocr function with extracted text');
+    // Call the process-ocr edge function with the combined text
+    console.log('Calling process-ocr function with combined extracted text');
     const { data, error } = await supabase.functions.invoke('process-ocr', {
       body: { 
         answerScriptId,
-        extractedText: combinedText || currentScriptText,
+        extractedText: combinedText,
         autoGrade,
-        isMultiScript: validScripts.length > 1
+        isMultiScript: urls.length > 1
       }
     });
     

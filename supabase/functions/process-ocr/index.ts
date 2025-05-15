@@ -1,4 +1,3 @@
-
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
@@ -20,6 +19,8 @@ async function mlSegmentation(extractedText, questions) {
     
     const prompt = `
       Objective: Segment this extracted text into ${questions.length} separate answers.
+      The text may contain page breaks indicated by "--- Next Page ---".
+      Please ensure each answer is complete regardless of page breaks.
       
       Extracted text from student exam (from OCR): "${extractedText}"
       
@@ -30,6 +31,7 @@ async function mlSegmentation(extractedText, questions) {
       1. Identify where each answer starts and ends
       2. Return a JSON array with each segmented answer
       3. If a question appears to be unanswered, return an empty string for that answer
+      4. Treat page breaks as continuous text when determining answer boundaries
       
       Output format:
       {
@@ -66,17 +68,20 @@ async function mlSegmentation(extractedText, questions) {
   }
 }
 
-// Simple fallback segmentation method - divides text evenly
+// Simple fallback segmentation method - divides text evenly while respecting page breaks
 function simpleSegmentation(extractedText, questionCount) {
   console.log("Using simple segmentation as fallback");
   const segments = [];
   
+  // Remove page break markers and join text
+  const cleanedText = extractedText.replace(/--- Next Page ---/g, ' ');
+  
   // Divide text evenly
-  const avgLength = Math.floor(extractedText.length / questionCount);
+  const avgLength = Math.floor(cleanedText.length / questionCount);
   for (let i = 0; i < questionCount; i++) {
     const start = i * avgLength;
-    const end = (i + 1 === questionCount) ? extractedText.length : (i + 1) * avgLength;
-    segments.push(extractedText.substring(start, end).trim());
+    const end = (i + 1 === questionCount) ? cleanedText.length : (i + 1) * avgLength;
+    segments.push(cleanedText.substring(start, end).trim());
   }
   
   return {

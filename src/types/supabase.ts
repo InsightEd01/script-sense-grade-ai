@@ -1,4 +1,3 @@
-
 export interface Teacher {
   id: string;
   name: string;
@@ -46,15 +45,17 @@ export interface AnswerScript {
   student_id: string;
   examination_id: string;
   script_image_url: string;
-  processing_status: 'uploaded' | 'ocr_pending' | 'ocr_complete' | 'grading_pending' | 'grading_complete' | 'error';
+  additional_image_urls: string[];
+  processing_status: 'uploaded' | 'ocr_pending' | 'ocr_complete' | 'grading_complete' | 'error';
   upload_timestamp: string;
-  student?: Student;
   custom_instructions?: string;
-  enable_misconduct_detection?: boolean;
-  flags?: string[];
-  script_number?: number;
+  enable_misconduct_detection: boolean;
   full_extracted_text?: string;
-  combined_extracted_text?: string;
+  script_number?: number;
+  page_count: number;
+  page_order: number[];
+  student?: Student;
+  examination?: Examination;
 }
 
 export interface Answer {

@@ -18,6 +18,47 @@ import { scanBarcodeFromImage } from '@/lib/barcodeScanner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { supabase } from "@/integrations/supabase/client";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
+
+// Function to upload image to storage and get URL
+async function uploadImageToStorage(base64Data: string, pageNumber: number): Promise<string> {
+  const timestamp = Date.now();
+  const filename = `${timestamp}_page${pageNumber}.jpg`;
+  
+  // Convert base64 to blob
+  const base64Response = await fetch(base64Data);
+  const blob = await base64Response.blob();
+
+  try {
+    // Upload to Supabase storage directly since bucket is created via migrations
+    const { data, error: uploadError } = await supabase.storage
+      .from('answer-scripts')
+      .upload(filename, blob, {
+        contentType: 'image/jpeg',
+        cacheControl: '3600'
+      });
+
+    if (uploadError) {
+      console.error('Storage upload error:', uploadError);
+      throw new Error(`Failed to upload image: ${uploadError.message}`);
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('answer-scripts')
+      .getPublicUrl(data.path);
+
+    if (!publicUrl) {
+      throw new Error('Failed to get public URL for uploaded image');
+    }
+
+    return publicUrl;
+  } catch (error) {
+    console.error('Storage operation failed:', error);
+    throw error;
+  }
+}
 
 const FILE_SIZE_LIMIT = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
@@ -26,13 +67,13 @@ const formSchema = z.object({
   student_id: z.string().min(1, { message: 'Please select a student' }),
   script_file: z
     .instanceof(FileList)
-    .refine((files) => files.length > 0, 'Please upload a file')
+    .refine((files) => files.length > 0, 'Please upload at least one file')
     .refine(
-      (files) => files[0]?.size <= FILE_SIZE_LIMIT,
-      `Max file size is 5MB`
+      (files) => Array.from(files).every(file => file.size <= FILE_SIZE_LIMIT),
+      `Each file must be 5MB or less`
     )
     .refine(
-      (files) => ACCEPTED_FILE_TYPES.includes(files[0]?.type),
+      (files) => Array.from(files).every(file => ACCEPTED_FILE_TYPES.includes(file.type)),
       'Only JPEG, PNG, and PDF files are accepted'
     ),
   identification_method: z.enum(['manual', 'qr'], {
@@ -58,6 +99,7 @@ export function UploadScriptForm({ examinationId, students, onSuccess }: UploadS
   const [scanningQrCode, setScanningQrCode] = useState(false);
   const [qrCodeResult, setQrCodeResult] = useState<string | null>(null);
   const [matchedStudent, setMatchedStudent] = useState<Student | null>(null);
+  const [filePreviews, setFilePreviews] = useState<string[]>([]);
   
   const form = useForm<UploadScriptFormValues>({
     resolver: zodResolver(formSchema),
@@ -72,26 +114,29 @@ export function UploadScriptForm({ examinationId, students, onSuccess }: UploadS
   const identificationMethod = form.watch('identification_method');
   
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Create a preview for image files
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // Clear existing previews
+    setFilePreviews([]);
+    const newPreviews: string[] = [];
+
+    // Process each file
+    for (const file of files) {
       if (file.type.startsWith('image/')) {
         const reader = new FileReader();
         reader.onload = (event) => {
           const previewUrl = event.target?.result as string;
-          setFilePreview(previewUrl);
-          setShowPreview(true); // Show preview when new file is uploaded
-          
-          // If QR code mode is selected, attempt to scan the barcode
-          if (identificationMethod === 'qr') {
+          newPreviews.push(previewUrl);
+          setFilePreviews(prev => [...prev, previewUrl]);
+          setShowPreview(true);
+
+          // If QR code mode is selected, attempt to scan the first image
+          if (filePreviews.length === 0 && form.getValues('identification_method') === 'qr') {
             scanQrCode(previewUrl);
           }
         };
         reader.readAsDataURL(file);
-      } else {
-        // For PDF files, just clear the preview
-        setFilePreview(null);
-        setShowPreview(false);
       }
     }
   };
@@ -150,35 +195,41 @@ export function UploadScriptForm({ examinationId, students, onSuccess }: UploadS
     
     try {
       setIsUploading(true);
-      
-      const file = data.script_file[0];
-      
-      // Upload the file to Supabase Storage
-      const imageUrl = await uploadAnswerScript(
-        file,
-        user.id,
-        data.student_id,
-        examinationId
-      );
-      
-      // Create the answer script record in the database
-      const scriptResponse = await createAnswerScript({
-        student_id: data.student_id,
-        examination_id: examinationId,
-        script_image_url: imageUrl,
-        processing_status: 'uploaded',
-        upload_timestamp: new Date().toISOString(),
-        custom_instructions: data.custom_instructions,
-        enable_misconduct_detection: data.enable_misconduct_detection
-      });
-      
-      if (scriptResponse && scriptResponse.id) {
-        // Process the script with our centralized OCR module
+      const uploadedUrls: string[] = [];
+
+      // Upload each file
+      for (let i = 0; i < filePreviews.length; i++) {
+        const base64Data = filePreviews[i];
+        const imageUrl = await uploadImageToStorage(base64Data, i + 1);
+        uploadedUrls.push(imageUrl);
+      }
+
+      // Create the answer script record
+      const { data: scriptResponse, error: scriptError } = await supabase
+        .from('answer_scripts')
+        .insert({
+          student_id: data.student_id,
+          examination_id: examinationId,
+          script_image_url: uploadedUrls[0], // Store first image as main image
+          additional_image_urls: uploadedUrls.slice(1), // Store additional images
+          processing_status: 'uploaded',
+          upload_timestamp: new Date().toISOString(),
+          custom_instructions: data.custom_instructions,
+          enable_misconduct_detection: data.enable_misconduct_detection,
+          page_count: uploadedUrls.length
+        })
+        .select()
+        .single();
+
+      if (scriptError) throw scriptError;
+
+      if (scriptResponse) {
+        // Process all images with OCR
         try {
-          await processAnswerScript(scriptResponse.id, imageUrl, true);
+          await processAnswerScript(scriptResponse.id, uploadedUrls, true);
           toast({
             title: "Script Uploaded",
-            description: "The answer script has been uploaded and OCR processing has started.",
+            description: `The answer script with ${uploadedUrls.length} pages has been uploaded and OCR processing has started.`,
           });
         } catch (ocrError) {
           console.error('OCR processing error:', ocrError);
@@ -189,21 +240,19 @@ export function UploadScriptForm({ examinationId, students, onSuccess }: UploadS
           });
         }
       }
-      
+
       form.reset();
-      setFilePreview(null);
+      setFilePreviews([]);
+      setShowPreview(false);
       setQrCodeResult(null);
       setMatchedStudent(null);
-      
-      if (onSuccess) {
-        onSuccess();
-      }
+      onSuccess();
     } catch (error) {
-      console.error('Failed to upload script:', error);
+      console.error('Error uploading script:', error);
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Failed to upload script. Please try again.",
+        title: "Upload Error",
+        description: "Failed to upload the answer script. Please try again.",
       });
     } finally {
       setIsUploading(false);
@@ -346,14 +395,15 @@ export function UploadScriptForm({ examinationId, students, onSuccess }: UploadS
               name="script_file"
               render={({ field: { onChange, value, ...rest } }) => (
                 <FormItem>
-                  <FormLabel>Answer Script File</FormLabel>
+                  <FormLabel>Answer Script Files</FormLabel>
                   <FormControl>
                     <div className="space-y-4">
                       <div className="w-full items-center gap-1.5">
-                        <Label htmlFor="script-file">Upload File</Label>
+                        <Label htmlFor="script-file">Upload Files</Label>
                         <Input
                           id="script-file"
                           type="file"
+                          multiple
                           accept="image/png,image/jpeg,image/jpg,application/pdf"
                           disabled={isUploading || scanningQrCode}
                           onChange={(e) => {
@@ -363,7 +413,7 @@ export function UploadScriptForm({ examinationId, students, onSuccess }: UploadS
                           {...rest}
                         />
                       </div>
-                      {filePreview && (
+                      {filePreviews.length > 0 && (
                         <div className="mt-4">
                           <Button
                             type="button"
@@ -374,22 +424,39 @@ export function UploadScriptForm({ examinationId, students, onSuccess }: UploadS
                             {showPreview ? (
                               <>
                                 <EyeOff className="h-4 w-4 mr-2" />
-                                Hide Preview
+                                Hide Previews
                               </>
                             ) : (
                               <>
                                 <Eye className="h-4 w-4 mr-2" />
-                                Show Preview
+                                Show Previews ({filePreviews.length} files)
                               </>
                             )}
                           </Button>
-                          {showPreview && (
-                            <div className="border rounded-md overflow-hidden bg-muted/10">
-                              <img 
-                                src={filePreview} 
-                                alt="Script preview" 
-                                className="w-full h-auto max-h-[400px] object-contain"
-                              />
+                          {showPreview && filePreviews.length > 0 && (
+                            <div className="w-full relative">
+                              <Carousel className="w-full max-w-4xl mx-auto">
+                                <CarouselContent>
+                                  {filePreviews.map((preview, index) => (
+                                    <CarouselItem key={index}>
+                                      <div className="border rounded-md overflow-hidden bg-muted/10">
+                                        <div className="p-2 bg-muted/20 border-b">
+                                          <span className="text-sm font-medium">Page {index + 1} of {filePreviews.length}</span>
+                                        </div>
+                                        <div className="p-4">
+                                          <img 
+                                            src={preview} 
+                                            alt={`Script preview ${index + 1}`} 
+                                            className="w-full h-auto max-h-[400px] object-contain"
+                                          />
+                                        </div>
+                                      </div>
+                                    </CarouselItem>
+                                  ))}
+                                </CarouselContent>
+                                <CarouselPrevious />
+                                <CarouselNext />
+                              </Carousel>
                             </div>
                           )}
                         </div>
@@ -398,7 +465,7 @@ export function UploadScriptForm({ examinationId, students, onSuccess }: UploadS
                   </FormControl>
                   <FormMessage />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Accepted file types: JPEG, PNG, PDF. Maximum size: 5MB.
+                    Accepted file types: JPEG, PNG, PDF. Maximum size per file: 5MB. You can select multiple files.
                   </p>
                 </FormItem>
               )}
