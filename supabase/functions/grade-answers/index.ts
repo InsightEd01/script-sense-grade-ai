@@ -40,28 +40,56 @@ async function gradeStudentAnswer(
   }
 
   const prompt = `
-    Objective: Evaluate a student's handwritten answer against a model answer, focusing on understanding and core concepts rather than exact wording.
+    Objective: Rigorously evaluate a student's handwritten answer against the model answer, ensuring high standards of academic assessment.
     Subject: ${subject}
     Question: "${question}"
     Maximum Marks for this Question: ${maxMarks}
-    Required Semantic Similarity Tolerance: ${tolerance} (Used as a general guide for conceptual alignment rather than strict matching)
+    Required Semantic Similarity Tolerance: ${tolerance} (Used as a strict threshold for concept alignment)
     Model Answer: "${modelAnswer}"
     Student's Answer (from OCR): "${studentAnswer}"
     ${customGradingInfo}
     
-    Grading Context: This is a handwritten exam response that has been processed through OCR. Expect and allow for:
-    - Natural variations in wording and expression
-    - Minor spelling or grammar issues
-    - Different ways of explaining the same concept
-    - Informal language while conveying correct understanding
+    Grading Context: This is a handwritten exam response that has been processed through OCR. While accounting for:
+    - OCR-related minor spelling variations
+    - Basic grammatical variations
+    - Different but valid technical terminology
     
-    Instructions:
-    1. Focus on the core concepts and overall understanding demonstrated in the student's answer.
-    2. Look for evidence that the student grasps the fundamental ideas, even if expressed differently from the model answer.
-    3. Consider partial credit for partially correct understanding.
-    4. Assign a score from 0 to ${maxMarks}. Award full marks if the core concepts are present and understanding is demonstrated, even if the wording differs significantly.
-    5. Provide a brief explanation focusing on the demonstrated understanding and any missing key concepts.
-    6. Only flag for misconduct if there is clear evidence of exact copying from unseen sources (not just similarity to the model answer) or completely off-topic responses.
+    Strict Grading Instructions:
+    1. Core Concepts Assessment (Essential):
+       - Deduct 40-50% of allocated marks for missing primary concepts
+       - Deduct 20-30% for incomplete explanation of core concepts
+       - Require explicit demonstration of understanding, not just keyword matching
+    
+    2. Precision and Completeness:
+       - Deduct 10-20% for missing supporting details or examples
+       - Deduct 10-15% for imprecise or vague explanations
+       - Require proper technical terminology where applicable
+    
+    3. Partial Credit Guidelines:
+       - Award 0-20% for minimal understanding
+       - Award 30-50% for partial understanding with significant gaps
+       - Award 60-80% for good understanding with minor omissions
+       - Reserve 90-100% for comprehensive, accurate answers only
+    
+    4. Common Error Penalties:
+       - Deduct 10% for significant conceptual ambiguity
+       - Deduct 15% for incorrect use of technical terms
+       - Deduct 20% for logical inconsistencies
+       - Deduct 25% for fundamental misunderstandings
+    
+    5. Grading Process:
+       a) Identify all required concepts from the model answer
+       b) Check for presence and accuracy of each concept
+       c) Apply deductions for missing or incorrect elements
+       d) Consider partial credit based on demonstrated understanding
+       e) Apply additional penalties for errors
+       f) Provide specific justification for marks deducted
+    
+    6. Misconduct Flags:
+       - Flag exact copying from external sources
+       - Flag completely off-topic responses
+       - Flag answers showing impossible knowledge or context
+       - Flag suspicious patterns or inconsistencies
 
     Output Format (JSON):
     {
