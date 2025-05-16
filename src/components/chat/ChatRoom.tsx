@@ -1,7 +1,7 @@
-
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Paperclip, Send, Mic } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -175,7 +175,12 @@ export const ChatRoom = () => {
         (payload) => {
           console.log('New message received:', payload);
           const newMessage = payload.new as ChatMessage;
-          setMessages(prev => [...prev, newMessage]);
+          setMessages(prev => {
+            // Check for duplicate messages
+            const messageExists = prev.some(m => m.id === newMessage.id);
+            if (messageExists) return prev;
+            return [...prev, newMessage];
+          });
           scrollToBottom();
         }
       )
@@ -195,6 +200,19 @@ export const ChatRoom = () => {
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !user || !roomId || roomId === 'new') return;
 
+    const tempId = uuidv4();
+    const messageData = {
+      id: tempId,
+      room_id: roomId,
+      sender_id: user.id,
+      message_text: newMessage,
+      sent_at: new Date().toISOString()
+    };
+
+    // Optimistic update
+    setMessages(prev => [...prev, messageData]);
+    setNewMessage('');
+
     try {
       setIsLoading(true);
       
@@ -208,14 +226,12 @@ export const ChatRoom = () => {
           message_text: newMessage
         }]);
 
-      if (error) {
-        console.error('Error sending message:', error);
-        throw error;
-      }
-
-      setNewMessage('');
+      if (error) throw error;
     } catch (error) {
       console.error('Error sending message:', error);
+      // Remove the optimistic update on error
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      setNewMessage(messageData.message_text);
       toast({
         title: "Error",
         description: "Failed to send message. Please try again.",
@@ -233,7 +249,7 @@ export const ChatRoom = () => {
     try {
       setIsLoading(true);
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
+      const fileName = `${uuidv4()}.${fileExt}`;
       const filePath = `${roomId}/${fileName}`;
 
       // Create storage bucket if it doesn't exist
@@ -288,6 +304,10 @@ export const ChatRoom = () => {
 
   const startRecording = async () => {
     try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Voice recording is not supported in this browser');
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
@@ -306,10 +326,17 @@ export const ChatRoom = () => {
       mediaRecorder.start();
       setIsRecording(true);
     } catch (error) {
+      const errorMessage = 
+        error instanceof Error && error.name === 'NotAllowedError'
+          ? "Please allow microphone access to record voice messages"
+          : error instanceof Error && error.name === 'NotFoundError'
+          ? "No microphone found. Please connect a microphone and try again"
+          : "Could not start voice recording";
+
       console.error('Error starting recording:', error);
       toast({
         title: "Error",
-        description: "Failed to start recording",
+        description: errorMessage,
         variant: "destructive"
       });
     }
@@ -325,9 +352,21 @@ export const ChatRoom = () => {
   const handleVoiceUpload = async (audioBlob: Blob) => {
     if (!user || !roomId || roomId === 'new') return;
 
+    const tempId = uuidv4();
+    const messageData = {
+      id: tempId,
+      room_id: roomId,
+      sender_id: user.id,
+      attachment_type: 'voice',
+      sent_at: new Date().toISOString()
+    };
+
+    // Optimistic update for voice message
+    setMessages(prev => [...prev, messageData]);
+
     try {
       setIsLoading(true);
-      const fileName = `${Math.random()}.webm`;
+      const fileName = `${uuidv4()}.webm`;
       const filePath = `${roomId}/${fileName}`;
 
       // Create storage bucket if it doesn't exist
@@ -360,6 +399,8 @@ export const ChatRoom = () => {
       if (error) throw error;
 
     } catch (error) {
+      // Remove optimistic update on error
+      setMessages(prev => prev.filter(m => m.id !== tempId));
       console.error('Error uploading voice message:', error);
       toast({
         title: "Error",
