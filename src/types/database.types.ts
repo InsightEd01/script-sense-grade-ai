@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   email: string;
@@ -8,6 +7,7 @@ export interface User {
 export interface Teacher {
   id: string;
   name: string;
+  admin_id?: string;  // Made optional for backward compatibility
   user?: User;
 }
 

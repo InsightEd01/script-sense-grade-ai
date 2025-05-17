@@ -310,6 +310,9 @@ export async function updateQuestion(
 // Teachers
 export async function getTeachers(): Promise<Teacher[]> {
   try {
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError) throw userError;
+
     const { data, error } = await supabase
       .from('teachers')
       .select('*, users(*)')
@@ -320,6 +323,7 @@ export async function getTeachers(): Promise<Teacher[]> {
       throw error;
     }
 
+    // The RLS policies will automatically filter teachers based on admin custody
     return data || [];
   } catch (error) {
     console.error('getTeachers error:', error);
@@ -362,6 +366,23 @@ export async function deleteTeacher(id: string): Promise<void> {
     }
   } catch (error) {
     console.error('deleteTeacher error:', error);
+    throw error;
+  }
+}
+
+export async function updateTeacher(id: string, updates: { name: string }): Promise<void> {
+  try {
+    const { error: updateError } = await supabase
+      .from('teachers')
+      .update(updates)
+      .eq('id', id);
+
+    if (updateError) {
+      console.error('Error updating teacher:', updateError);
+      throw updateError;
+    }
+  } catch (error) {
+    console.error('updateTeacher error:', error);
     throw error;
   }
 }
