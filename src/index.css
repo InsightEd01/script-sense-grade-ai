@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -91,105 +90,105 @@
   }
 
   body {
-    @apply bg-scriptsense-background text-scriptsense-text;
+    @apply bg-stylus-background text-stylus-text;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
 @layer components {
-  .scriptsense-container {
+  .stylus-container {
     @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
   }
 
-  .scriptsense-card {
+  .stylus-card {
     @apply bg-white rounded-lg shadow-md p-6 border border-gray-200 hover:shadow-lg transition-shadow duration-300;
   }
 
-  .scriptsense-heading {
-    @apply text-scriptsense-primary font-bold;
+  .stylus-heading {
+    @apply text-stylus-primary font-bold;
   }
 
-  .scriptsense-subheading {
+  .stylus-subheading {
     @apply text-gray-600 font-medium;
   }
 
-  .scriptsense-btn-primary {
-    @apply bg-scriptsense-primary hover:bg-blue-900 text-white transition-colors px-4 py-2 rounded-md font-medium;
+  .stylus-btn-primary {
+    @apply bg-stylus-primary hover:bg-blue-900 text-white transition-colors px-4 py-2 rounded-md font-medium;
   }
 
-  .scriptsense-btn-secondary {
-    @apply bg-scriptsense-secondary hover:bg-indigo-600 text-white transition-colors px-4 py-2 rounded-md font-medium;
+  .stylus-btn-secondary {
+    @apply bg-stylus-secondary hover:bg-indigo-600 text-white transition-colors px-4 py-2 rounded-md font-medium;
   }
 
-  .scriptsense-btn-accent {
-    @apply bg-scriptsense-accent hover:bg-blue-600 text-white transition-colors px-4 py-2 rounded-md font-medium;
+  .stylus-btn-accent {
+    @apply bg-stylus-accent hover:bg-blue-600 text-white transition-colors px-4 py-2 rounded-md font-medium;
   }
 
-  .scriptsense-btn-success {
-    @apply bg-scriptsense-success hover:bg-green-600 text-white transition-colors px-4 py-2 rounded-md font-medium;
+  .stylus-btn-success {
+    @apply bg-stylus-success hover:bg-green-600 text-white transition-colors px-4 py-2 rounded-md font-medium;
   }
 
-  .scriptsense-btn-warning {
-    @apply bg-scriptsense-warning hover:bg-amber-600 text-white transition-colors px-4 py-2 rounded-md font-medium;
+  .stylus-btn-warning {
+    @apply bg-stylus-warning hover:bg-amber-600 text-white transition-colors px-4 py-2 rounded-md font-medium;
   }
 
-  .scriptsense-btn-error {
-    @apply bg-scriptsense-error hover:bg-red-600 text-white transition-colors px-4 py-2 rounded-md font-medium;
+  .stylus-btn-error {
+    @apply bg-stylus-error hover:bg-red-600 text-white transition-colors px-4 py-2 rounded-md font-medium;
   }
 
-  .scriptsense-badge {
+  .stylus-badge {
     @apply px-2 py-1 text-xs font-medium rounded-full;
   }
 
-  .scriptsense-badge-primary {
-    @apply bg-blue-100 text-scriptsense-primary;
+  .stylus-badge-primary {
+    @apply bg-blue-100 text-stylus-primary;
   }
 
-  .scriptsense-badge-success {
-    @apply bg-green-100 text-scriptsense-success;
+  .stylus-badge-success {
+    @apply bg-green-100 text-stylus-success;
   }
 
-  .scriptsense-badge-warning {
-    @apply bg-amber-100 text-scriptsense-warning;
+  .stylus-badge-warning {
+    @apply bg-amber-100 text-stylus-warning;
   }
 
-  .scriptsense-badge-error {
-    @apply bg-red-100 text-scriptsense-error;
+  .stylus-badge-error {
+    @apply bg-red-100 text-stylus-error;
   }
 
-  .scriptsense-input {
+  .stylus-input {
     @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
   }
 
-  .scriptsense-select {
+  .stylus-select {
     @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
   }
 
-  .scriptsense-textarea {
+  .stylus-textarea {
     @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
   }
 
-  .scriptsense-label {
+  .stylus-label {
     @apply block text-sm font-medium text-gray-700 mb-1;
   }
 
-  .scriptsense-table {
+  .stylus-table {
     @apply min-w-full divide-y divide-gray-200;
   }
 
-  .scriptsense-th {
+  .stylus-th {
     @apply px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
   }
 
-  .scriptsense-td {
+  .stylus-td {
     @apply px-6 py-4 whitespace-nowrap text-sm text-gray-500;
   }
 
-  .scriptsense-tr-odd {
+  .stylus-tr-odd {
     @apply bg-white;
   }
 
-  .scriptsense-tr-even {
+  .stylus-tr-even {
     @apply bg-gray-50;
   }
 }

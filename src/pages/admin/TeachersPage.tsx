@@ -170,7 +170,7 @@ const TeachersPage = () => {
           </div>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-scriptsense-primary hover:bg-blue-800">
+              <Button className="bg-stylus-primary hover:bg-blue-800">
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Add Teacher
               </Button>
@@ -238,7 +238,7 @@ const TeachersPage = () => {
                 <Button 
                   onClick={handleAddTeacher} 
                   disabled={isSubmitting}
-                  className="bg-scriptsense-primary hover:bg-blue-800"
+                  className="bg-stylus-primary hover:bg-blue-800"
                 >
                   {isSubmitting ? <Loading size="sm" /> : <UserPlus className="mr-2 h-4 w-4" />}
                   Add Teacher
@@ -357,7 +357,7 @@ const TeachersPage = () => {
             </Button>
             <Button 
               onClick={handleUpdateTeacher}
-              className="bg-scriptsense-primary hover:bg-blue-800"
+              className="bg-stylus-primary hover:bg-blue-800"
             >
               Update Teacher
             </Button>

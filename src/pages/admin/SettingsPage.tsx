@@ -1,4 +1,3 @@
-
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -20,7 +19,7 @@ const SettingsPage = () => {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">System Settings</h1>
-          <p className="text-gray-500">Configure system-wide settings for scriptSense.</p>
+          <p className="text-gray-500">Configure system-wide settings for Stylus (Formally scriptSense ai).</p>
         </div>
         
         <Tabs defaultValue="general">
@@ -36,7 +35,7 @@ const SettingsPage = () => {
               <CardHeader>
                 <CardTitle>General Settings</CardTitle>
                 <CardDescription>
-                  Configure system-wide settings for scriptSense.
+                  Configure system-wide settings for Stylus (Formally scriptSense ai).
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -76,7 +75,7 @@ const SettingsPage = () => {
                   <Label htmlFor="system-email">System Email</Label>
                   <Input
                     id="system-email"
-                    placeholder="system@scriptsense.insighted.com"
+                    placeholder="system@stylus.insighted.com"
                   />
                   <p className="text-sm text-muted-foreground">
                     Email used for system notifications (not implemented)

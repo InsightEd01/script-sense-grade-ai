@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -75,7 +74,7 @@ const SubjectsPage = () => {
           </div>
           <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-scriptsense-primary hover:bg-blue-800">
+              <Button className="bg-stylus-primary hover:bg-blue-800">
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Add Subject
               </Button>
@@ -164,7 +163,7 @@ const SubjectsPage = () => {
                 <p className="text-muted-foreground">No subjects found. Create your first subject to get started.</p>
                 <Button 
                   onClick={() => setIsFormOpen(true)} 
-                  className="mt-4 bg-scriptsense-primary"
+                  className="mt-4 bg-stylus-primary"
                 >
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Create First Subject

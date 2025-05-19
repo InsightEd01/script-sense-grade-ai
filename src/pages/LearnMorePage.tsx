@@ -13,22 +13,22 @@ const LearnMorePage = () => {
 
   const features = [
     {
-      icon: <Brain className="w-12 h-12 text-scriptsense-primary" />,
+      icon: <Brain className="w-12 h-12 text-stylus-primary" />,
       title: "AI-Powered Grading",
       description: "Revolutionary AI technology that helps teachers grade answer scripts with accuracy and consistency."
     },
     {
-      icon: <BookOpen className="w-12 h-12 text-scriptsense-primary" />,
+      icon: <BookOpen className="w-12 h-12 text-stylus-primary" />,
       title: "Smart Learning Analytics",
       description: "Detailed insights into student performance patterns and learning progress."
     },
     {
-      icon: <Users className="w-12 h-12 text-scriptsense-primary" />,
+      icon: <Users className="w-12 h-12 text-stylus-primary" />,
       title: "Collaborative Assessment",
       description: "Work together with other teachers to ensure fair and standardized grading across classes."
     },
     {
-      icon: <Award className="w-12 h-12 text-scriptsense-primary" />,
+      icon: <Award className="w-12 h-12 text-stylus-primary" />,
       title: "Personalized Feedback",
       description: "Generate detailed, constructive feedback for each student automatically."
     }
@@ -40,18 +40,24 @@ const LearnMorePage = () => {
       <header className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-sm z-50 border-b">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center space-x-2">
-            <div className="bg-scriptsense-primary text-white p-2 rounded">
+            <div className="bg-stylus-primary text-white p-2 rounded">
               <Pen size={20} />
             </div>
-            <span className="text-xl font-bold text-scriptsense-primary">scriptSense</span>
+            <span className="text-xl font-bold text-stylus-primary">
+              <span style={{ fontFamily: 'cursive, calligraphic, serif', fontWeight: 700, fontSize: '1.3em' }}>Stylus</span>
+              <span className="ml-2 text-base font-normal text-gray-500">(Formally scriptSense ai)</span>
+            </span>
           </Link>
-          <div className="flex items-center space-x-4">
-            <Link to="/login">
-              <Button variant="ghost">Log in</Button>
-            </Link>
-            <Link to="/signup">
-              <Button>Get Started</Button>
-            </Link>
+          <div className="flex flex-col items-end space-y-1">
+            <div className="flex items-center space-x-4">
+              <Link to="/login">
+                <Button variant="ghost">Log in</Button>
+              </Link>
+              <Link to="/signup">
+                <Button>Get Started</Button>
+              </Link>
+            </div>
+            <span className="text-xs text-gray-400">by InsightEd</span>
           </div>
         </div>
       </header>
@@ -66,15 +72,18 @@ const LearnMorePage = () => {
         >
           <h1 className="text-5xl font-bold text-gray-900 mb-6">
             Transform Your 
-            <span className="text-scriptsense-primary"> Grading Experience</span>
+            <span className="text-stylus-primary" style={{ fontFamily: 'cursive, calligraphic, serif', fontWeight: 700 }}>Stylus</span>
+            <span className="ml-2 text-base font-normal text-gray-500">(Formally scriptSense ai)</span>
+            <span className="block text-xs text-gray-400 mt-1">by InsightEd</span>
+            Grading Experience
           </h1>
           <p className="text-xl text-gray-600 mb-12 max-w-3xl mx-auto">
-            Discover how scriptSense revolutionizes the way teachers assess student work, 
+            Discover how Stylus (Formally scriptSense ai) revolutionizes the way teachers assess student work, 
             making grading more efficient, consistent, and insightful than ever before.
           </p>
           <div className="flex justify-center">
             <Link to="/signup">
-              <Button size="lg" className="bg-scriptsense-primary hover:bg-scriptsense-primary/90">
+              <Button size="lg" className="bg-stylus-primary hover:bg-stylus-primary/90">
                 Start Free Trial
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
@@ -124,7 +133,7 @@ const LearnMorePage = () => {
             className="text-center mb-16"
             {...fadeInUp}
           >
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">See scriptSense in Action</h2>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">See Stylus (Formally scriptSense ai) in Action</h2>
             <p className="text-lg text-gray-600 mb-8">Watch how our AI-powered grading system transforms the assessment process</p>
           </motion.div>
           
@@ -162,7 +171,7 @@ const LearnMorePage = () => {
             >
               <Card className="relative h-full">
                 <CardHeader>
-                  <div className="absolute -top-4 -left-4 w-12 h-12 bg-scriptsense-primary text-white rounded-full flex items-center justify-center text-xl font-bold">1</div>
+                  <div className="absolute -top-4 -left-4 w-12 h-12 bg-stylus-primary text-white rounded-full flex items-center justify-center text-xl font-bold">1</div>
                   <CardTitle className="pt-6">Upload Scripts</CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -180,7 +189,7 @@ const LearnMorePage = () => {
             >
               <Card className="relative h-full">
                 <CardHeader>
-                  <div className="absolute -top-4 -left-4 w-12 h-12 bg-scriptsense-primary text-white rounded-full flex items-center justify-center text-xl font-bold">2</div>
+                  <div className="absolute -top-4 -left-4 w-12 h-12 bg-stylus-primary text-white rounded-full flex items-center justify-center text-xl font-bold">2</div>
                   <CardTitle className="pt-6">AI Analysis</CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -198,7 +207,7 @@ const LearnMorePage = () => {
             >
               <Card className="relative h-full">
                 <CardHeader>
-                  <div className="absolute -top-4 -left-4 w-12 h-12 bg-scriptsense-primary text-white rounded-full flex items-center justify-center text-xl font-bold">3</div>
+                  <div className="absolute -top-4 -left-4 w-12 h-12 bg-stylus-primary text-white rounded-full flex items-center justify-center text-xl font-bold">3</div>
                   <CardTitle className="pt-6">Get Results</CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -213,7 +222,7 @@ const LearnMorePage = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-4 bg-scriptsense-primary text-white">
+      <section className="py-20 px-4 bg-stylus-primary text-white">
         <motion.div 
           className="container mx-auto text-center"
           initial={{ opacity: 0, scale: 0.95 }}
@@ -224,10 +233,10 @@ const LearnMorePage = () => {
             <Sparkles className="w-16 h-16 mx-auto mb-8" />
             <h2 className="text-4xl font-bold mb-6">Ready to Transform Your Grading?</h2>
             <p className="text-xl mb-8 text-white/90">
-              Join thousands of educators who are already saving time and providing better feedback with scriptSense.
+              Join thousands of educators who are already saving time and providing better feedback with Stylus (Formally scriptSense ai).
             </p>
             <Link to="/signup">
-              <Button size="lg" variant="secondary" className="bg-white text-scriptsense-primary hover:bg-white/90">
+              <Button size="lg" variant="secondary" className="bg-white text-stylus-primary hover:bg-white/90">
                 Start Your Free Trial
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
@@ -242,12 +251,15 @@ const LearnMorePage = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <div className="bg-white p-2 rounded">
-                <Pen size={20} className="text-scriptsense-primary" />
+                <Pen size={20} className="text-stylus-primary" />
               </div>
-              <span className="text-xl font-bold">scriptSense</span>
+              <span className="text-xl font-bold">
+                <span style={{ fontFamily: 'cursive, calligraphic, serif', fontWeight: 700 }}>Stylus</span>
+                <span className="ml-2 text-xs font-normal text-gray-300">(Formally scriptSense ai)</span>
+              </span>
             </div>
             <div className="text-gray-400">
-              © {new Date().getFullYear()} scriptSense. All rights reserved.
+              © {new Date().getFullYear()} Stylus (Formally scriptSense ai) by InsightEd. All rights reserved.
             </div>
           </div>
         </div>

@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -63,8 +62,8 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				// ScriptSense specific colors
-				scriptsense: {
+				 // Stylus specific colors
+				stylus: {
 					primary: '#1E3A8A', // deep blue
 					secondary: '#4F46E5', // indigo
 					accent: '#3B82F6', // blue

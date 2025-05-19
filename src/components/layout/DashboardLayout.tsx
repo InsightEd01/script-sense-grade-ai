@@ -36,7 +36,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       await signOut();
       toast({
         title: "Signed out successfully",
-        description: "You have been signed out of ScriptSense"
+        description: "You have been signed out of Stylus (Formally scriptSense ai)"
       });
       navigate('/');
     } catch (error) {
@@ -81,10 +81,11 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between p-4 border-b">
             <Link to="/dashboard" className="flex items-center space-x-2">
-              <div className="bg-scriptsense-primary text-white p-2 rounded">
+              <div className="bg-stylus-primary text-white p-2 rounded">
                 <Pen size={20} />
               </div>
-              <span className="text-xl font-bold text-scriptsense-primary">scriptSense</span>
+              <span className="text-xl font-bold text-stylus-primary" style={{ fontFamily: 'cursive, calligraphic, serif', fontWeight: 700 }}>Stylus</span>
+              <span className="ml-2 text-xs font-normal text-gray-500">(Formally scriptSense ai)</span>
             </Link>
             <button 
               onClick={() => setSidebarOpen(false)}
@@ -103,7 +104,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   className={cn(
                     "flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors",
                     location.pathname === item.href 
-                      ? "bg-scriptsense-primary text-white" 
+                      ? "bg-stylus-primary text-white" 
                       : "text-gray-600 hover:bg-gray-100"
                   )}
                 >
@@ -127,7 +128,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                       className={cn(
                         "flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors",
                         location.pathname === item.href 
-                          ? "bg-scriptsense-primary text-white" 
+                          ? "bg-stylus-primary text-white" 
                           : "text-gray-600 hover:bg-gray-100"
                       )}
                     >
@@ -172,7 +173,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               <Menu size={24} />
             </button>
             <div className="flex items-center space-x-3">
-              <span className="text-sm text-gray-500">InsightEd</span>
+              <span className="text-sm text-gray-500">by InsightEd</span>
             </div>
           </div>
         </header>

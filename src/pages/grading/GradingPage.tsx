@@ -512,7 +512,7 @@ const GradingPage = () => {
           {selectedExamination && (
             <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-scriptsense-primary hover:bg-blue-800">
+                <Button className="bg-stylus-primary hover:bg-blue-800">
                   <Upload className="mr-2 h-4 w-4" />
                   Upload Scripts
                 </Button>
@@ -890,7 +890,7 @@ const GradingPage = () => {
                     <p className="text-muted-foreground">No answer scripts found for this examination. Upload your first script to get started.</p>
                     <Button 
                       onClick={() => setIsUploadOpen(true)} 
-                      className="mt-4 bg-scriptsense-primary"
+                      className="mt-4 bg-stylus-primary"
                     >
                       <Upload className="mr-2 h-4 w-4" />
                       Upload First Script

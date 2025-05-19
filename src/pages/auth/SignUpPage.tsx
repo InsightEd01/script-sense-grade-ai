@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Pen, Loader2 } from 'lucide-react';
@@ -71,10 +70,11 @@ const SignUpPage = () => {
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-8">
           <div className="flex items-center space-x-2">
-            <div className="bg-scriptsense-primary text-white p-2 rounded">
+            <div className="bg-stylus-primary text-white p-2 rounded">
               <Pen size={24} />
             </div>
-            <span className="text-2xl font-bold text-scriptsense-primary">scriptSense</span>
+            <span className="text-2xl font-bold text-stylus-primary" style={{ fontFamily: 'cursive, calligraphic, serif', fontWeight: 700 }}>Stylus</span>
+            <span className="ml-2 text-xs font-normal text-gray-500">(Formally scriptSense ai)</span>
           </div>
         </div>
         
@@ -166,7 +166,7 @@ const SignUpPage = () => {
                 
                 <Button 
                   type="submit" 
-                  className="w-full bg-scriptsense-primary hover:bg-blue-800"
+                  className="w-full bg-stylus-primary hover:bg-blue-800"
                   disabled={isLoading}
                 >
                   {isLoading ? (
@@ -185,7 +185,7 @@ const SignUpPage = () => {
           <CardFooter className="flex justify-center">
             <p className="text-sm text-gray-600">
               Already have an account?{" "}
-              <Link to="/signin" className="text-scriptsense-primary font-medium hover:underline">
+              <Link to="/signin" className="text-stylus-primary font-medium hover:underline">
                 Sign in
               </Link>
             </p>
@@ -193,7 +193,7 @@ const SignUpPage = () => {
         </Card>
         
         <div className="mt-8 text-center">
-          <Link to="/" className="text-sm text-gray-600 hover:text-scriptsense-primary">
+          <Link to="/" className="text-sm text-gray-600 hover:text-stylus-primary">
             Back to Welcome Page
           </Link>
         </div>

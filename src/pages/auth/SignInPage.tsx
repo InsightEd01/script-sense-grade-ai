@@ -71,10 +71,11 @@ const SignInPage = () => {
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-8">
           <div className="flex items-center space-x-2">
-            <div className="bg-scriptsense-primary text-white p-2 rounded">
+            <div className="bg-stylus-primary text-white p-2 rounded">
               <Pen size={24} />
             </div>
-            <span className="text-2xl font-bold text-scriptsense-primary">scriptSense</span>
+            <span className="text-2xl font-bold text-stylus-primary" style={{ fontFamily: 'cursive, calligraphic, serif', fontWeight: 700 }}>Stylus</span>
+            <span className="ml-2 text-xs font-normal text-gray-500">(Formally scriptSense ai)</span>
           </div>
         </div>
         
@@ -167,7 +168,7 @@ const SignInPage = () => {
                 
                 <Button 
                   type="submit" 
-                  className="w-full bg-scriptsense-primary hover:bg-blue-800"
+                  className="w-full bg-stylus-primary hover:bg-blue-800"
                   disabled={isLoading}
                 >
                   {isLoading ? (
@@ -186,7 +187,7 @@ const SignInPage = () => {
           <CardFooter className="flex justify-center">
             <p className="text-sm text-gray-600">
               Need an admin account?{" "}
-              <Link to="/signup" className="text-scriptsense-primary font-medium hover:underline">
+              <Link to="/signup" className="text-stylus-primary font-medium hover:underline">
                 Create admin account
               </Link>
             </p>
@@ -198,7 +199,7 @@ const SignInPage = () => {
         </div>
         
         <div className="mt-4 text-center">
-          <Link to="/" className="text-sm text-gray-600 hover:text-scriptsense-primary">
+          <Link to="/" className="text-sm text-gray-600 hover:text-stylus-primary">
             Back to Welcome Page
           </Link>
         </div>

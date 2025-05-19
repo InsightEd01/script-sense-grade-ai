@@ -103,7 +103,7 @@ const QuestionsPage = () => {
             if (!open) setEditingQuestion(null);
           }}>
             <DialogTrigger asChild>
-              <Button className="bg-scriptsense-primary hover:bg-blue-800">
+              <Button className="bg-stylus-primary hover:bg-blue-800">
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Add Question
               </Button>
@@ -196,7 +196,7 @@ const QuestionsPage = () => {
                 <p className="text-muted-foreground">No questions found for this examination. Add your first question to get started.</p>
                 <Button 
                   onClick={() => setIsFormOpen(true)} 
-                  className="mt-4 bg-scriptsense-primary"
+                  className="mt-4 bg-stylus-primary"
                 >
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Create First Question
