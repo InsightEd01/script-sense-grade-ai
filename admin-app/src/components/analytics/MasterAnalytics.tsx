@@ -1,12 +1,23 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
-import { Loading } from '@/components/ui/loading';
-import { School, getSchools } from '@/services/masterAdminService';
+import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { getSchools } from '@/services/masterAdminService';
 import { Building2, School as SchoolIcon, UserPlus, Users2 } from 'lucide-react';
 
+// Create a local Loading component since the imported one doesn't exist
+function Loading({ className, text }: { className?: string; text?: string }) {
+  return (
+    <div className={cn("flex items-center justify-center gap-2", className)}>
+      <Loader2 className="h-4 w-4 animate-spin" />
+      {text && <span className="text-sm text-muted-foreground">{text}</span>}
+    </div>
+  );
+}
+
 export function MasterAnalytics() {
-  const { data: schools, isLoading } = useQuery({
+  const { data: schools = [], isLoading } = useQuery({
     queryKey: ['schools'],
     queryFn: getSchools
   });
@@ -103,7 +114,7 @@ export function MasterAnalytics() {
                   fill="#8884d8"
                   dataKey="value"
                 >
-                  {schoolSizeDistribution.map((entry, index) => (
+                  {schoolSizeDistribution.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>

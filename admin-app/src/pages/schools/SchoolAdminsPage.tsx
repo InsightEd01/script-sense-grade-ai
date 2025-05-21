@@ -1,7 +1,8 @@
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getSchoolById, getSchoolAdmins } from '@/services/masterAdminService';
-import { Loading } from '@/components/ui/loading';
+import type { SchoolAdmin } from '@/services/masterAdminService';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -12,6 +13,15 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useSchoolManagement } from '@/hooks/use-school-management';
 import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
+
+function Loading({ text }: { text?: string }) {
+  return (
+    <div className="flex items-center justify-center gap-2 h-40">
+      <Loader2 className="h-4 w-4 animate-spin" />
+      {text && <span className="text-sm text-muted-foreground">{text}</span>}
+    </div>
+  );
+}
 
 export function SchoolAdminsPage() {
   const { id } = useParams<{ id: string }>();
@@ -131,11 +141,11 @@ export function SchoolAdminsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {admins.map((admin) => (
+                {admins.map((admin: SchoolAdmin) => (
                   <TableRow key={admin.id}>
                     <TableCell>{admin.email}</TableCell>
                     <TableCell>
-                      {new Date(admin.created_at).toLocaleDateString()}
+                      {new Date(admin.createdAt).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button

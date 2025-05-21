@@ -83,7 +83,7 @@ export function SchoolsPage() {
         description: 'School created successfully',
       });
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: 'Error',
         description: 'Failed to create school',
@@ -94,6 +94,7 @@ export function SchoolsPage() {
 
   const updateSchoolMutation = useMutation({
     mutationFn: (school: School) => updateSchool(school.id, {
+      id: school.id,
       name: school.name,
       address: school.address || '',
       maxTeachers: school.maxTeachers,

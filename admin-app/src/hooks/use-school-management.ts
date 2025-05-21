@@ -1,6 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
-import { School, SchoolAdmin, createSchool, updateSchool, deleteSchool, createSchoolAdmin, removeSchoolAdmin } from '@/services/masterAdminService';
+import type { School } from '@/services/masterAdminService';
+import { createSchool, updateSchool, deleteSchool, createSchoolAdmin, removeSchoolAdmin } from '@/services/masterAdminService';
 
 export function useSchoolManagement() {
   const queryClient = useQueryClient();
@@ -64,8 +65,8 @@ export function useSchoolManagement() {
   const createAdminMutation = useMutation({
     mutationFn: ({ email, password, schoolId }: { email: string; password: string; schoolId: string }) =>
       createSchoolAdmin(email, password, schoolId),
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['admins', variables.schoolId] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admins'] });
       toast({
         title: 'Admin created',
         description: 'The school admin has been successfully created.',
@@ -82,7 +83,7 @@ export function useSchoolManagement() {
 
   const removeAdminMutation = useMutation({
     mutationFn: removeSchoolAdmin,
-    onSuccess: (data, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admins'] });
       toast({
         title: 'Admin removed',

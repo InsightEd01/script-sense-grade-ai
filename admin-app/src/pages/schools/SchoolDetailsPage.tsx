@@ -1,23 +1,38 @@
+import * as React from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getSchoolById } from '@/services/masterAdminService';
+import type { School } from '@/services/masterAdminService';
 import { useSchool } from '@/contexts/SchoolContext';
-import { Loading } from '@/components/ui/loading';
+import { Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { SchoolAnalytics } from '@/components/analytics/SchoolAnalytics';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+function Loading({ text }: { text?: string }) {
+  return (
+    <div className="flex items-center justify-center gap-2 h-40">
+      <Loader2 className="h-4 w-4 animate-spin" />
+      {text && <span className="text-sm text-muted-foreground">{text}</span>}
+    </div>
+  );
+}
 
 export function SchoolDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const { setSelectedSchool } = useSchool();
 
-  const { data: school, isLoading } = useQuery({
+  const { data: school, isLoading } = useQuery<School, Error>({
     queryKey: ['school', id],
     queryFn: () => getSchoolById(id!),
-    onSuccess: (school) => {
+    enabled: !!id
+  });
+
+  React.useEffect(() => {
+    if (school) {
       setSelectedSchool(school);
     }
-  });
+  }, [school, setSelectedSchool]);
 
   if (isLoading || !school) {
     return <Loading text="Loading school details..." />;

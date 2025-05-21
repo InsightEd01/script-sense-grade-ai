@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { School } from '@/services/masterAdminService';
+import { createContext, useContext, useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
+import type { School } from '@/services/masterAdminService';
 
 interface SchoolContextType {
   selectedSchool: School | null;

@@ -1,9 +1,20 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
-import { Loading } from '@/components/ui/loading';
-import { School, SchoolStats, getSchoolStats } from '@/services/masterAdminService';
+import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import type { School } from '@/services/masterAdminService';
+import { getSchoolStats } from '@/services/masterAdminService';
 import { Building2, GraduationCap, School as SchoolIcon, Users } from 'lucide-react';
+
+function Loading({ className, text }: { className?: string; text?: string }) {
+  return (
+    <div className={cn("flex items-center justify-center gap-2", className)}>
+      <Loader2 className="h-4 w-4 animate-spin" />
+      {text && <span className="text-sm text-muted-foreground">{text}</span>}
+    </div>
+  );
+}
 
 interface SchoolAnalyticsProps {
   school: School;
