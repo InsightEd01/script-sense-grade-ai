@@ -487,35 +487,3 @@ export async function sendMessage(roomId: string, senderId: string, message: str
     throw error;
   }
 }
-
-export async function fetchTeachers() {
-  try {
-    const { data, error } = await supabase
-      .from('teachers')
-      .select(`
-        id,
-        name,
-        users (
-          email,
-          id,
-          role
-        )
-      `);
-    
-    if (error) {
-      throw error;
-    }
-
-    // Handle the case where admin_id might not exist in the database yet
-    const formattedTeachers = data.map(teacher => ({
-      id: teacher.id,
-      name: teacher.name,
-      users: teacher.users
-    })) as Teacher[];
-    
-    return formattedTeachers;
-  } catch (error) {
-    console.error('Error fetching teachers:', error);
-    throw error;
-  }
-}

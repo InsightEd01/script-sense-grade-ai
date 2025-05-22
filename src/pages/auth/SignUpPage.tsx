@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Pen, Loader2 } from 'lucide-react';
@@ -12,7 +11,6 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Role } from '@/types/auth.types';
 
 const signUpSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
@@ -45,14 +43,15 @@ const SignUpPage = () => {
       name: '',
       email: '',
       password: '',
-      confirmPassword: ''
+      confirmPassword: '',
+      role: 'teacher',
     },
   });
 
   const onSubmit = async (data: SignUpFormValues) => {
     try {
       setIsLoading(true);
-      await signUp(data.email, data.password, 'admin' as Role, data.name);
+      await signUp(data.email, data.password, 'admin', data.name);
       // The signUp function now handles navigation after successful signup
     } catch (error) {
       if (error instanceof Error) {

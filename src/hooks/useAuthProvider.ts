@@ -1,11 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { User as CustomUser } from '@/types/supabase';
 import { User, Session } from '@supabase/supabase-js';
 import { useToast } from './use-toast';
-import { Role } from '@/types/auth.types';
 
 export const useAuthProvider = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -17,7 +15,6 @@ export const useAuthProvider = () => {
 
   const isAdmin = customUser?.role === 'admin';
   const isTeacher = customUser?.role === 'teacher';
-  const isMasterAdmin = customUser?.role === 'master_admin';
 
   useEffect(() => {
     // Set up auth state listener first
@@ -45,7 +42,7 @@ export const useAuthProvider = () => {
                 setCustomUser({
                   id: currentSession.user.id,
                   email: currentSession.user.email || '',
-                  role: userData.role as Role
+                  role: userData.role as 'admin' | 'teacher'
                 });
               }
             } catch (error) {
@@ -85,7 +82,7 @@ export const useAuthProvider = () => {
               setCustomUser({
                 id: currentSession.user.id,
                 email: currentSession.user.email || '',
-                role: userData.role as Role
+                role: userData.role as 'admin' | 'teacher'
               });
             }
             setIsLoading(false);
@@ -100,7 +97,7 @@ export const useAuthProvider = () => {
     };
   }, []);
 
-  const signIn = async (email: string, password: string, role: Role) => {
+  const signIn = async (email: string, password: string, role: 'admin' | 'teacher') => {
     try {
       setIsLoading(true);
       const { error, data } = await supabase.auth.signInWithPassword({ 
@@ -155,7 +152,7 @@ export const useAuthProvider = () => {
     }
   };
 
-  const signUp = async (email: string, password: string, role: Role, name: string) => {
+  const signUp = async (email: string, password: string, role: 'admin' | 'teacher', name: string) => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase.auth.signUp({ 
@@ -266,7 +263,6 @@ export const useAuthProvider = () => {
     session,
     isAdmin,
     isTeacher,
-    isMasterAdmin,
     isLoading,
     signIn,
     signUp,

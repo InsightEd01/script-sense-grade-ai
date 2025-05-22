@@ -1,22 +1,14 @@
-
 export interface User {
   id: string;
   email: string;
-  role: 'admin' | 'teacher' | 'master_admin';
-  school_id?: string;
+  role: 'admin' | 'teacher';
 }
 
 export interface Teacher {
   id: string;
   name: string;
   admin_id?: string;  // Made optional for backward compatibility
-  school_id?: string;
   user?: User;
-  users?: {
-    email: string;
-    id: string;
-    role: string;
-  } | null;
 }
 
 export interface Student {
@@ -24,7 +16,6 @@ export interface Student {
   teacher_id: string;
   name: string;
   unique_student_id: string;
-  school_id?: string;
 }
 
 export interface Subject {
@@ -33,7 +24,6 @@ export interface Subject {
   name: string;
   description?: string;
   created_at: string;
-  school_id?: string;
 }
 
 export interface Examination {
@@ -69,9 +59,6 @@ export interface AnswerScript {
   custom_instructions?: string;
   enable_misconduct_detection?: boolean;
   flags?: string[];
-  additional_image_urls?: string[];
-  page_count?: number;
-  page_order?: number[];
 }
 
 export interface Answer {
@@ -95,13 +82,4 @@ export interface GradingResult {
   score: number;
   explanation: string;
   flags?: string[];
-}
-
-export interface School {
-  id: string;
-  name: string;
-  address?: string;
-  created_at: string;
-  created_by: string;
-  updated_at?: string;
 }
