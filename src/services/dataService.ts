@@ -487,3 +487,37 @@ export async function sendMessage(roomId: string, senderId: string, message: str
     throw error;
   }
 }
+
+export async function fetchTeachers() {
+  try {
+    const { data, error } = await supabase
+      .from('teachers')
+      .select(`
+        id,
+        name,
+        admin_id,
+        users (
+          email,
+          id,
+          role
+        )
+      `);
+    
+    if (error) {
+      throw error;
+    }
+
+    // Ensure all the required fields are present
+    const formattedTeachers = data.map(teacher => ({
+      id: teacher.id,
+      name: teacher.name,
+      admin_id: teacher.admin_id || undefined,  // Ensure admin_id is included even if null
+      users: teacher.users
+    }));
+    
+    return formattedTeachers as Teacher[];
+  } catch (error) {
+    console.error('Error fetching teachers:', error);
+    throw error;
+  }
+}

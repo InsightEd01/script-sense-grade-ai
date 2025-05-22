@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -706,17 +705,16 @@ export default function AnalyticsPage() {
                       colors={["#4CAF50", "#F44336"]}
                       borderWidth={1}
                       borderColor={{ from: 'color', modifiers: [['darker', 0.2]] }}
-                      radialLabelsSkipAngle={10}
-                      radialLabelsTextXOffset={6}
-                      radialLabelsTextColor="#333333"
-                      radialLabelsLinkOffset={0}
-                      radialLabelsLinkDiagonalLength={16}
-                      radialLabelsLinkHorizontalLength={24}
-                      radialLabelsLinkStrokeWidth={1}
-                      radialLabelsLinkColor={{ from: 'color' }}
-                      slicesLabelsSkipAngle={10}
-                      slicesLabelsTextColor="#333333"
-                      animate={true}
+                      arcLabelsSkipAngle={10}
+                      arcLabelsTextColor="#333333"
+                      arcLabelsRadiusOffset={0.5}
+                      arcLabelsLinkOffset={3}
+                      arcLabelsLinkDiagonalLength={16}
+                      arcLabelsLinkHorizontalLength={24}
+                      arcLabelsLinkStrokeWidth={1}
+                      arcLabelsLinkColor={{ from: 'color' }}
+                      enableArcLabels={true}
+                      enableArcLinkLabels={true}
                       legends={[
                         {
                           anchor: 'bottom',
@@ -848,12 +846,12 @@ export default function AnalyticsPage() {
                     pointLabelYOffset={-12}
                     useMesh={true}
                     enableSlices="x"
-                    sliceTooltip={({ slice }) => {
+                    tooltip={({ slice }) => {
                       return (
                         <div className="bg-white p-2 border border-gray-200 shadow-md rounded-md">
                           {slice.points.map((point) => (
                             <div key={point.id} className="text-sm">
-                              <strong>{point.data.examName}</strong>
+                              <strong>{point.data.x}</strong>
                               <div>{point.data.y}% average score</div>
                             </div>
                           ))}

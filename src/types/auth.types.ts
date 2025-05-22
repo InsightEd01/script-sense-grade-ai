@@ -1,14 +1,17 @@
 
-import type { User, Session } from '@supabase/supabase-js';
+import { User as SupabaseUser, Session } from '@supabase/supabase-js';
+import { User } from './supabase';
 
-export type AuthContextType = {
-  user: User | null;
+export type Role = 'admin' | 'teacher' | 'master_admin';
+
+export interface AuthContextType {
+  user: SupabaseUser | null;
   session: Session | null;
   isAdmin: boolean;
   isTeacher: boolean;
   isMasterAdmin: boolean;
   isLoading: boolean;
-  signIn: (email: string, password: string, role: 'admin' | 'teacher' | 'master_admin') => Promise<{ user: User | null; session: Session | null }>;
-  signUp: (email: string, password: string, role: 'admin' | 'teacher' | 'master_admin', name: string) => Promise<{ user: User | null; session: Session | null }>;
+  signIn: (email: string, password: string, role: Role) => Promise<{ user: SupabaseUser | null; session: Session | null }>;
+  signUp: (email: string, password: string, role: Role, name: string) => Promise<{ user: SupabaseUser | null; session: Session | null }>;
   signOut: () => Promise<void>;
-};
+}

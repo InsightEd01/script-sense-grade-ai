@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { User as CustomUser } from '@/types/supabase';
 import { User, Session } from '@supabase/supabase-js';
 import { useToast } from './use-toast';
+import { Role } from '@/types/auth.types';
 
 export const useAuthProvider = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -44,7 +45,7 @@ export const useAuthProvider = () => {
                 setCustomUser({
                   id: currentSession.user.id,
                   email: currentSession.user.email || '',
-                  role: userData.role as 'admin' | 'teacher' | 'master_admin'
+                  role: userData.role as Role
                 });
               }
             } catch (error) {
@@ -84,7 +85,7 @@ export const useAuthProvider = () => {
               setCustomUser({
                 id: currentSession.user.id,
                 email: currentSession.user.email || '',
-                role: userData.role as 'admin' | 'teacher' | 'master_admin'
+                role: userData.role as Role
               });
             }
             setIsLoading(false);
@@ -99,7 +100,7 @@ export const useAuthProvider = () => {
     };
   }, []);
 
-  const signIn = async (email: string, password: string, role: 'admin' | 'teacher' | 'master_admin') => {
+  const signIn = async (email: string, password: string, role: Role) => {
     try {
       setIsLoading(true);
       const { error, data } = await supabase.auth.signInWithPassword({ 
@@ -154,7 +155,7 @@ export const useAuthProvider = () => {
     }
   };
 
-  const signUp = async (email: string, password: string, role: 'admin' | 'teacher' | 'master_admin', name: string) => {
+  const signUp = async (email: string, password: string, role: Role, name: string) => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase.auth.signUp({ 
