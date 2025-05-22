@@ -1,9 +1,13 @@
 export interface Teacher {
   id: string;
   name: string;
-  admin_id: string;
-  email?: string;
-  created_at?: string;
+  school_id?: string;
+  admin_id?: string;
+  users?: {
+    email: string;
+    id: string;
+    role: string;
+  };
 }
 
 export interface Student {

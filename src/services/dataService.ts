@@ -495,7 +495,6 @@ export async function fetchTeachers() {
       .select(`
         id,
         name,
-        admin_id,
         users (
           email,
           id,
@@ -507,15 +506,14 @@ export async function fetchTeachers() {
       throw error;
     }
 
-    // Ensure all the required fields are present
+    // Handle the case where admin_id might not exist in the database yet
     const formattedTeachers = data.map(teacher => ({
       id: teacher.id,
       name: teacher.name,
-      admin_id: teacher.admin_id || undefined,  // Ensure admin_id is included even if null
       users: teacher.users
-    }));
+    })) as Teacher[];
     
-    return formattedTeachers as Teacher[];
+    return formattedTeachers;
   } catch (error) {
     console.error('Error fetching teachers:', error);
     throw error;
