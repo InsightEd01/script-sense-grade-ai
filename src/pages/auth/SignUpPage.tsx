@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Pen, Loader2 } from 'lucide-react';
@@ -43,8 +44,7 @@ const SignUpPage = () => {
       name: '',
       email: '',
       password: '',
-      confirmPassword: '',
-      role: 'teacher',
+      confirmPassword: ''
     },
   });
 

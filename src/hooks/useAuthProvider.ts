@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +16,7 @@ export const useAuthProvider = () => {
 
   const isAdmin = customUser?.role === 'admin';
   const isTeacher = customUser?.role === 'teacher';
+  const isMasterAdmin = customUser?.role === 'master_admin';
 
   useEffect(() => {
     // Set up auth state listener first
@@ -42,7 +44,7 @@ export const useAuthProvider = () => {
                 setCustomUser({
                   id: currentSession.user.id,
                   email: currentSession.user.email || '',
-                  role: userData.role as 'admin' | 'teacher'
+                  role: userData.role as 'admin' | 'teacher' | 'master_admin'
                 });
               }
             } catch (error) {
@@ -82,7 +84,7 @@ export const useAuthProvider = () => {
               setCustomUser({
                 id: currentSession.user.id,
                 email: currentSession.user.email || '',
-                role: userData.role as 'admin' | 'teacher'
+                role: userData.role as 'admin' | 'teacher' | 'master_admin'
               });
             }
             setIsLoading(false);
@@ -97,7 +99,7 @@ export const useAuthProvider = () => {
     };
   }, []);
 
-  const signIn = async (email: string, password: string, role: 'admin' | 'teacher') => {
+  const signIn = async (email: string, password: string, role: 'admin' | 'teacher' | 'master_admin') => {
     try {
       setIsLoading(true);
       const { error, data } = await supabase.auth.signInWithPassword({ 
@@ -152,7 +154,7 @@ export const useAuthProvider = () => {
     }
   };
 
-  const signUp = async (email: string, password: string, role: 'admin' | 'teacher', name: string) => {
+  const signUp = async (email: string, password: string, role: 'admin' | 'teacher' | 'master_admin', name: string) => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase.auth.signUp({ 
@@ -263,6 +265,7 @@ export const useAuthProvider = () => {
     session,
     isAdmin,
     isTeacher,
+    isMasterAdmin,
     isLoading,
     signIn,
     signUp,

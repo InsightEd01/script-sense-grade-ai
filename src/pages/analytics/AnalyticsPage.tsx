@@ -20,11 +20,13 @@ interface ExamStatsResponse {
   total_students: number;
   avg_score_percentage: number;
   passing_rate: number;
-  subject_data: {
-    subject_name: string;
-    exam_count: number;
-    avg_score: number;
-  }[];
+  subject_data: SubjectData[];
+}
+
+interface SubjectData {
+  subject_name: string;
+  exam_count: number;
+  avg_score: number;
 }
 
 interface ScoreDistribution {
@@ -36,6 +38,18 @@ interface QuestionDifficulty {
   question_text: string;
   avg_score: number;
   max_marks: number;
+}
+
+interface ScriptScore {
+  score: number;
+  possible: number;
+}
+
+interface SubjectStat {
+  subject_name: string;
+  exam_count: number;
+  total_score: number;
+  total_possible: number;
 }
 
 export default function AnalyticsPage() {
@@ -140,10 +154,10 @@ export default function AnalyticsPage() {
       let totalScore = 0;
       let totalPossibleScore = 0;
       let passingScripts = 0;
-      const subjectStats = {};
+      const subjectStats: Record<string, SubjectStat> = {};
       
       // Group answers by script
-      const scriptAnswers = {};
+      const scriptAnswers: Record<string, any[]> = {};
       answers?.forEach(answer => {
         if (!scriptAnswers[answer.answer_script_id]) {
           scriptAnswers[answer.answer_script_id] = [];
@@ -212,7 +226,7 @@ export default function AnalyticsPage() {
         avg_score_percentage: avgScorePercentage,
         passing_rate: passingRate,
         subject_data: subjectData
-      };
+      } as ExamStatsResponse;
     }
   });
 
@@ -274,7 +288,7 @@ export default function AnalyticsPage() {
       if (answerError) throw answerError;
       
       // Calculate score percentages for each script
-      const scriptScores = {};
+      const scriptScores: Record<string, ScriptScore> = {};
       
       answers?.forEach(answer => {
         if (!scriptScores[answer.answer_script_id]) {
@@ -290,7 +304,7 @@ export default function AnalyticsPage() {
       });
       
       // Create distribution ranges
-      const distribution = {
+      const distribution: Record<string, number> = {
         "0-20%": 0,
         "21-40%": 0,
         "41-60%": 0,
@@ -377,7 +391,14 @@ export default function AnalyticsPage() {
       if (answerError) throw answerError;
       
       // Calculate average scores for each question
-      const questionStats = {};
+      interface QuestionStat {
+        question_text: string;
+        max_marks: number;
+        total_score: number;
+        count: number;
+      }
+      
+      const questionStats: Record<string, QuestionStat> = {};
       
       questions?.forEach(question => {
         questionStats[question.id] = {
@@ -458,7 +479,7 @@ export default function AnalyticsPage() {
           .in('answer_script_id', scriptIds);
           
         // Group answers by script
-        const scriptScores = {};
+        const scriptScores: Record<string, ScriptScore> = {};
         
         answers?.forEach(answer => {
           if (!scriptScores[answer.answer_script_id]) {

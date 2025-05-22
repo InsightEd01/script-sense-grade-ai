@@ -96,7 +96,7 @@ const TeachersPage = () => {
     setIsSubmitting(true);
 
     try {
-      await signUp({ email, password, role: 'teacher', name });
+      await signUp(email, password, 'teacher', name);
       
       setName('');
       setEmail('');
