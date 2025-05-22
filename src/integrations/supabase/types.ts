@@ -11,6 +11,7 @@ export type Database = {
     Tables: {
       answer_scripts: {
         Row: {
+          additional_image_urls: string[] | null
           combined_extracted_text: string | null
           custom_instructions: string | null
           enable_misconduct_detection: boolean | null
@@ -18,6 +19,8 @@ export type Database = {
           flags: string[] | null
           full_extracted_text: string | null
           id: string
+          page_count: number | null
+          page_order: number[] | null
           processing_status: string
           script_image_url: string
           script_number: number | null
@@ -25,6 +28,7 @@ export type Database = {
           upload_timestamp: string
         }
         Insert: {
+          additional_image_urls?: string[] | null
           combined_extracted_text?: string | null
           custom_instructions?: string | null
           enable_misconduct_detection?: boolean | null
@@ -32,6 +36,8 @@ export type Database = {
           flags?: string[] | null
           full_extracted_text?: string | null
           id?: string
+          page_count?: number | null
+          page_order?: number[] | null
           processing_status: string
           script_image_url: string
           script_number?: number | null
@@ -39,6 +45,7 @@ export type Database = {
           upload_timestamp?: string
         }
         Update: {
+          additional_image_urls?: string[] | null
           combined_extracted_text?: string | null
           custom_instructions?: string | null
           enable_misconduct_detection?: boolean | null
@@ -46,6 +53,8 @@ export type Database = {
           flags?: string[] | null
           full_extracted_text?: string | null
           id?: string
+          page_count?: number | null
+          page_order?: number[] | null
           processing_status?: string
           script_image_url?: string
           script_number?: number | null
