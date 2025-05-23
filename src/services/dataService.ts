@@ -29,7 +29,7 @@ export async function createAnswerScript(answerScript: {
 export async function getAnswerScriptsByExamination(examinationId: string): Promise<AnswerScript[]> {
   const { data, error } = await supabase
     .from('answer_scripts')
-    .select('*, student:students(*)')
+    .select('*, student:students(*, school_id)')
     .eq('examination_id', examinationId)
     .order('upload_timestamp', { ascending: false });
 
@@ -44,7 +44,7 @@ export async function getAnswerScriptsByExamination(examinationId: string): Prom
 export async function getAnswerScriptById(id: string): Promise<AnswerScript> {
   const { data, error } = await supabase
     .from('answer_scripts')
-    .select('*, student:students(*), examination:examinations(*)')
+    .select('*, student:students(*, school_id), examination:examinations(*)')
     .eq('id', id)
     .single();
 
@@ -90,21 +90,21 @@ export async function getStudents(): Promise<Student[]> {
     throw currentUserError;
   }
 
-  // Fix the excessive type instantiation by explicitly typing the query
-  const query = supabase.from('students');
+  // Create the base query
+  let query = supabase
+    .from('students')
+    .select('*, school_id');
     
   // Filter students based on role
   if (currentUser.role === 'teacher') {
     // Teachers can only see their own students
-    query.eq('teacher_id', userData.user.id);
+    query = query.eq('teacher_id', userData.user.id);
   } else if (currentUser.role === 'admin' && currentUser.school_id) {
     // Admins can see all students in their school
-    query.eq('school_id', currentUser.school_id);
+    query = query.eq('school_id', currentUser.school_id);
   }
   
-  const { data, error } = await query
-    .select('*')
-    .order('name', { ascending: true });
+  const { data, error } = await query.order('name', { ascending: true });
 
   if (error) {
     console.error('Error fetching students:', error);
@@ -140,7 +140,7 @@ export async function createStudent(student: {
   const { data, error } = await supabase
     .from('students')
     .insert(studentWithSchool)
-    .select()
+    .select('*, school_id')
     .single();
 
   if (error) {
@@ -176,16 +176,14 @@ export async function getSubjects(context?: unknown): Promise<Subject[]> {
     teacherId = context;
   }
   
-  // Fix the excessive type instantiation by creating a simpler query
-  const baseQuery = supabase.from('subjects');
+  // Create the base query
+  let query = supabase.from('subjects').select('*');
   
   if (teacherId) {
-    baseQuery.eq('teacher_id', teacherId);
+    query = query.eq('teacher_id', teacherId);
   }
 
-  const { data, error } = await baseQuery
-    .select('*')
-    .order('name', { ascending: true });
+  const { data, error } = await query.order('name', { ascending: true });
 
   if (error) {
     console.error('Error fetching subjects:', error);
@@ -371,7 +369,7 @@ export async function getTeachers(): Promise<Teacher[]> {
       
     if (currentUserError) throw currentUserError;
 
-    // Simplify the query to avoid excessive type instantiation
+    // Create the base query
     let query = supabase.from('teacher_details').select('*');
     
     // Filter teachers based on role
