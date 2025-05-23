@@ -1,20 +1,25 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { User as CustomUser } from '@/types/supabase';
+import { User as CustomUser, School } from '@/types/supabase';
 import { User, Session } from '@supabase/supabase-js';
 import { useToast } from './use-toast';
+import { Role } from '@/types/auth.types';
 
 export const useAuthProvider = () => {
   const [user, setUser] = useState<User | null>(null);
   const [customUser, setCustomUser] = useState<CustomUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [schoolId, setSchoolId] = useState<string | undefined>(undefined);
+  const [schoolName, setSchoolName] = useState<string | undefined>(undefined);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   const isAdmin = customUser?.role === 'admin';
   const isTeacher = customUser?.role === 'teacher';
+  const isMasterAdmin = customUser?.role === 'master_admin';
 
   useEffect(() => {
     // Set up auth state listener first
@@ -42,8 +47,13 @@ export const useAuthProvider = () => {
                 setCustomUser({
                   id: currentSession.user.id,
                   email: currentSession.user.email || '',
-                  role: userData.role as 'admin' | 'teacher'
+                  role: userData.role as Role,
+                  school_id: userData.school_id
                 });
+                
+                if (userData.school_id) {
+                  fetchSchoolInfo(userData.school_id);
+                }
               }
             } catch (error) {
               console.error('Error in auth state change handler:', error);
@@ -54,6 +64,8 @@ export const useAuthProvider = () => {
         } else {
           setUser(null);
           setCustomUser(null);
+          setSchoolId(undefined);
+          setSchoolName(undefined);
           setIsLoading(false);
         }
       }
@@ -82,8 +94,13 @@ export const useAuthProvider = () => {
               setCustomUser({
                 id: currentSession.user.id,
                 email: currentSession.user.email || '',
-                role: userData.role as 'admin' | 'teacher'
+                role: userData.role as Role,
+                school_id: userData.school_id
               });
+              
+              if (userData.school_id) {
+                fetchSchoolInfo(userData.school_id);
+              }
             }
             setIsLoading(false);
           });
@@ -96,8 +113,30 @@ export const useAuthProvider = () => {
       subscription.unsubscribe();
     };
   }, []);
+  
+  const fetchSchoolInfo = async (schoolId: string) => {
+    try {
+      const { data: schoolData, error } = await supabase
+        .from('schools')
+        .select('name')
+        .eq('id', schoolId)
+        .single();
+        
+      if (error) {
+        console.error('Error fetching school data:', error.message);
+        return;
+      }
+      
+      if (schoolData) {
+        setSchoolId(schoolId);
+        setSchoolName(schoolData.name);
+      }
+    } catch (error) {
+      console.error('Error fetching school info:', error);
+    }
+  };
 
-  const signIn = async (email: string, password: string, role: 'admin' | 'teacher') => {
+  const signIn = async (email: string, password: string, role: Role) => {
     try {
       setIsLoading(true);
       const { error, data } = await supabase.auth.signInWithPassword({ 
@@ -113,7 +152,7 @@ export const useAuthProvider = () => {
       if (data.user) {
         const { data: userData, error: userError } = await supabase
           .from('users')
-          .select('role')
+          .select('role, school_id')
           .eq('id', data.user.id)
           .single();
 
@@ -122,7 +161,15 @@ export const useAuthProvider = () => {
         }
 
         if (userData.role !== role) {
-          throw new Error(`Invalid credentials for ${role} login`);
+          // Allow master_admin to sign in as admin for testing
+          if (!(userData.role === 'master_admin' && role === 'admin')) {
+            throw new Error(`Invalid credentials for ${role} login`);
+          }
+        }
+        
+        // Fetch school data if applicable
+        if (userData.school_id) {
+          fetchSchoolInfo(userData.school_id);
         }
       }
       
@@ -152,9 +199,15 @@ export const useAuthProvider = () => {
     }
   };
 
-  const signUp = async (email: string, password: string, role: 'admin' | 'teacher', name: string) => {
+  const signUp = async (email: string, password: string, role: Role, name: string, schoolInfo?: { name: string, address?: string }) => {
     try {
       setIsLoading(true);
+      
+      // For admin role, school info is required
+      if (role === 'admin' && (!schoolInfo || !schoolInfo.name)) {
+        throw new Error("School name is required for admin registration");
+      }
+      
       const { data, error } = await supabase.auth.signUp({ 
         email, 
         password,
@@ -172,12 +225,38 @@ export const useAuthProvider = () => {
       
       // Create user record manually to ensure it's available immediately
       if (data.user) {
+        let schoolId: string | undefined = undefined;
+        
+        // If role is admin, create a school first
+        if (role === 'admin' && schoolInfo) {
+          const { data: schoolData, error: schoolError } = await supabase
+            .from('schools')
+            .insert({
+              name: schoolInfo.name,
+              address: schoolInfo.address || null,
+              created_by: data.user.id
+            })
+            .select('id')
+            .single();
+            
+          if (schoolError) {
+            console.error('Error creating school record:', schoolError);
+            throw schoolError;
+          }
+          
+          schoolId = schoolData.id;
+          setSchoolId(schoolId);
+          setSchoolName(schoolInfo.name);
+        }
+        
+        // Create user record
         const { error: insertError } = await supabase
           .from('users')
           .insert({
             id: data.user.id,
             email: email,
-            role: role
+            role: role,
+            school_id: schoolId || null
           });
           
         if (insertError) {
@@ -191,7 +270,8 @@ export const useAuthProvider = () => {
             .from('teachers')
             .insert({
               id: data.user.id,
-              name: name
+              name: name,
+              school_id: null  // Will be set when admin assigns teacher
             });
             
           if (teacherError) {
@@ -244,6 +324,8 @@ export const useAuthProvider = () => {
       setUser(null);
       setCustomUser(null);
       setSession(null);
+      setSchoolId(undefined);
+      setSchoolName(undefined);
       navigate('/signin');
     } catch (error) {
       if (error instanceof Error) {
@@ -263,7 +345,10 @@ export const useAuthProvider = () => {
     session,
     isAdmin,
     isTeacher,
+    isMasterAdmin,
     isLoading,
+    schoolId,
+    schoolName,
     signIn,
     signUp,
     signOut

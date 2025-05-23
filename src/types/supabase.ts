@@ -1,7 +1,9 @@
+
 export interface Teacher {
   id: string;
   name: string;
   admin_id: string;
+  school_id?: string;
   email?: string;
   created_at?: string;
 }
@@ -90,7 +92,20 @@ export interface OCRResult {
 export interface User {
   id: string;
   email: string;
-  role: 'admin' | 'teacher';
+  role: 'admin' | 'teacher' | 'master_admin';
+  school_id?: string;
+}
+
+export interface School {
+  id: string;
+  name: string;
+  address?: string;
+  max_teachers?: number;
+  max_students?: number;
+  primary_color?: string;
+  secondary_color?: string;
+  created_by?: string;
+  created_at: string;
 }
 
 export interface SegmentationResult {

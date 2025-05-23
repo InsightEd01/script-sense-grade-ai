@@ -1,13 +1,16 @@
+
 export interface User {
   id: string;
   email: string;
-  role: 'admin' | 'teacher';
+  role: 'admin' | 'teacher' | 'master_admin';
+  school_id?: string;
 }
 
 export interface Teacher {
   id: string;
   name: string;
-  admin_id?: string;  // Made optional for backward compatibility
+  admin_id?: string;
+  school_id?: string;
   user?: User;
 }
 
@@ -16,6 +19,18 @@ export interface Student {
   teacher_id: string;
   name: string;
   unique_student_id: string;
+}
+
+export interface School {
+  id: string;
+  name: string;
+  address?: string;
+  max_teachers?: number;
+  max_students?: number;
+  primary_color?: string;
+  secondary_color?: string;
+  created_by?: string;
+  created_at: string;
 }
 
 export interface Subject {
