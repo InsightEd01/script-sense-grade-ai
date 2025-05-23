@@ -232,14 +232,15 @@ export const useAuthProvider = () => {
       let schoolId: string | undefined = undefined;
       
       // If role is admin, create a school first
-      // Using service role key for bypassing RLS during school creation
       if (role === 'admin' && schoolInfo) {
         try {
-          // Create school record directly via SQL function to bypass RLS
-          const { data: schoolData, error: schoolError } = await supabase.rpc('create_school', { 
-            school_name: schoolInfo.name,
-            school_address: schoolInfo.address || null,
-            user_id: data.user.id
+          // Create school record via custom function
+          const { data: schoolData, error: schoolError } = await supabase.functions.invoke('create-school', {
+            body: {
+              schoolName: schoolInfo.name,
+              schoolAddress: schoolInfo.address || null,
+              userId: data.user.id
+            }
           });
             
           if (schoolError) {
@@ -247,7 +248,7 @@ export const useAuthProvider = () => {
             throw schoolError;
           }
           
-          schoolId = schoolData;
+          schoolId = schoolData.id;
           setSchoolId(schoolId);
           setSchoolName(schoolInfo.name);
         } catch (schoolCreateError) {
