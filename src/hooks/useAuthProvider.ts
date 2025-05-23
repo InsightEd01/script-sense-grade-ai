@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -235,26 +234,27 @@ export const useAuthProvider = () => {
       if (role === 'admin' && schoolInfo) {
         try {
           // Create school record via custom function
-          const { data: schoolData, error: schoolError } = await supabase.functions.invoke('create-school', {
+          const response = await supabase.functions.invoke('create-school', {
             body: {
               schoolName: schoolInfo.name,
               schoolAddress: schoolInfo.address || null,
               userId: data.user.id
             }
           });
-            
-          if (schoolError) {
-            console.error('Error creating school record:', schoolError);
-            throw schoolError;
+          
+          if (response.error) {
+            console.error('Error creating school record:', response.error);
+            throw new Error(`Failed to create school: ${response.error.message}`);
           }
           
-          schoolId = schoolData.id;
-          setSchoolId(schoolId);
-          setSchoolName(schoolInfo.name);
+          if (response.data) {
+            schoolId = response.data.id;
+            setSchoolId(schoolId);
+            setSchoolName(schoolInfo.name);
+          }
         } catch (schoolCreateError) {
           console.error('Failed during school creation:', schoolCreateError);
-          // Continue with user creation even if school creation fails
-          // We'll handle the school assignment later if needed
+          throw new Error('Failed to create school. Please try again.');
         }
       }
       
@@ -270,7 +270,7 @@ export const useAuthProvider = () => {
           
       if (insertError) {
         console.error('Error creating user record:', insertError);
-        throw insertError;
+        throw new Error('Failed to create user record. Please try again.');
       }
       
       // Create teacher record if role is teacher
@@ -280,12 +280,12 @@ export const useAuthProvider = () => {
           .insert({
             id: data.user.id,
             name: name,
-            school_id: null  // Will be set when admin assigns teacher
+            school_id: schoolId  // Will be set when admin assigns teacher
           });
             
         if (teacherError) {
           console.error('Error creating teacher record:', teacherError);
-          throw teacherError;
+          throw new Error('Failed to create teacher record. Please try again.');
         }
       }
       
@@ -306,10 +306,7 @@ export const useAuthProvider = () => {
           variant: "destructive"
         });
       }
-      return {
-        user: null,
-        session: null
-      };
+      throw error;
     } finally {
       setIsLoading(false);
     }

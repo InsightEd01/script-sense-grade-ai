@@ -594,6 +594,41 @@ export type Database = {
           },
         ]
       }
+      system_backups: {
+        Row: {
+          backup_type: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          initiated_by: string | null
+          status: string
+        }
+        Insert: {
+          backup_type: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          initiated_by?: string | null
+          status: string
+        }
+        Update: {
+          backup_type?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          initiated_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_backups_initiated_by_fkey"
+            columns: ["initiated_by"]
+            isOneToOne: false
+            referencedRelation: "users_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_metrics: {
         Row: {
           created_at: string
@@ -617,6 +652,53 @@ export type Database = {
           metric_value?: number
         }
         Relationships: []
+      }
+      system_settings: {
+        Row: {
+          auto_backup_enabled: boolean
+          backup_frequency: string
+          created_at: string
+          id: string
+          maintenance_mode: boolean
+          notifications_enabled: boolean
+          support_email: string
+          system_name: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          auto_backup_enabled?: boolean
+          backup_frequency?: string
+          created_at?: string
+          id?: string
+          maintenance_mode?: boolean
+          notifications_enabled?: boolean
+          support_email?: string
+          system_name?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          auto_backup_enabled?: boolean
+          backup_frequency?: string
+          created_at?: string
+          id?: string
+          maintenance_mode?: boolean
+          notifications_enabled?: boolean
+          support_email?: string
+          system_name?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       teachers: {
         Row: {
@@ -732,6 +814,10 @@ export type Database = {
       get_user_school_id: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      is_master_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
       is_room_participant: {
         Args: { room_id: string }

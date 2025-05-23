@@ -25,6 +25,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Role } from '@/types/auth.types';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertCircle } from 'lucide-react';
 
 const signUpFormSchema = z.object({
   name: z.string().min(2, {
@@ -36,7 +38,9 @@ const signUpFormSchema = z.object({
   password: z.string().min(6, {
     message: "Password must be at least 6 characters.",
   }),
-  schoolName: z.string().optional(),
+  schoolName: z.string().min(2, {
+    message: "School name must be at least 2 characters.",
+  }).optional(),
   schoolAddress: z.string().optional(),
 });
 
@@ -45,7 +49,8 @@ type SignUpFormValues = z.infer<typeof signUpFormSchema>;
 const SignUpPage = () => {
   const navigate = useNavigate();
   const { signUp, isLoading } = useAuth();
-  const [selectedRole, setSelectedRole] = useState<Role>('teacher');
+  const [selectedRole, setSelectedRole] = useState<Role>('admin');
+  const [error, setError] = useState<string | null>(null);
 
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpFormSchema),
@@ -60,14 +65,28 @@ const SignUpPage = () => {
   });
 
   const onSubmit = async (data: SignUpFormValues) => {
+    setError(null);
+    
     try {
-      // Create schoolInfo object only for admin role
-      const schoolInfo = selectedRole === 'admin' ? {
-        name: data.schoolName || '',
-        address: data.schoolAddress
-      } : undefined;
+      // Only allow admin registration on this page
+      if (selectedRole !== 'admin') {
+        setError("Only administrators can register directly. Teachers are added by school administrators.");
+        return;
+      }
+
+      // Validate required fields for admin
+      if (!data.schoolName) {
+        setError("School name is required for administrator sign up.");
+        return;
+      }
       
-      console.log("Signing up user:", {
+      // Create schoolInfo object for admin role
+      const schoolInfo = {
+        name: data.schoolName,
+        address: data.schoolAddress
+      };
+      
+      console.log("Signing up admin:", {
         email: data.email,
         role: selectedRole,
         name: data.name,
@@ -81,6 +100,7 @@ const SignUpPage = () => {
       }
     } catch (error) {
       console.error('Sign up error:', error);
+      setError(error instanceof Error ? error.message : 'An error occurred during sign up');
     }
   };
 
@@ -90,15 +110,22 @@ const SignUpPage = () => {
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl">Sign up</CardTitle>
           <CardDescription>
-            Create your account to get started with Stylus
+            Create your administrator account to get started with Stylus
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6">
-          <Tabs defaultValue="teacher" onValueChange={(value) => setSelectedRole(value as Role)}>
+          <Tabs defaultValue="admin" onValueChange={(value) => setSelectedRole(value as Role)}>
             <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="teacher">Teacher</TabsTrigger>
-              <TabsTrigger value="admin">Admin</TabsTrigger>
+              <TabsTrigger value="admin">Administrator</TabsTrigger>
+              <TabsTrigger value="teacher" disabled title="Teachers are added by administrators">Teacher</TabsTrigger>
             </TabsList>
+            
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
             
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -142,36 +169,32 @@ const SignUpPage = () => {
                   )}
                 />
                 
-                {selectedRole === 'admin' && (
-                  <>
-                    <FormField
-                      control={form.control}
-                      name="schoolName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>School Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter school name" {...field} required />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="schoolAddress"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>School Address (optional)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter school address" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </>
-                )}
+                <FormField
+                  control={form.control}
+                  name="schoolName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>School Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter school name" {...field} required />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="schoolAddress"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>School Address (optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter school address" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? "Signing up..." : "Sign up"}

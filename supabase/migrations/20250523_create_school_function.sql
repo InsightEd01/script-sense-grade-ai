@@ -17,6 +17,11 @@ BEGIN
     VALUES (school_name, school_address, user_id)
     RETURNING id INTO new_school_id;
     
+    -- Update the user's school_id field
+    UPDATE public.users
+    SET school_id = new_school_id
+    WHERE id = user_id;
+    
     -- Return the new school ID
     RETURN new_school_id;
 END;
