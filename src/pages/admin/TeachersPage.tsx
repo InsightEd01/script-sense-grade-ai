@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -30,7 +31,7 @@ const TeachersPage = () => {
   const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
-  const { signUp, user } = useAuth();
+  const { signUp, user, schoolId } = useAuth();
   const queryClient = useQueryClient();
 
   const [name, setName] = useState('');
@@ -96,7 +97,8 @@ const TeachersPage = () => {
     setIsSubmitting(true);
 
     try {
-      await signUp({ email, password, role: 'teacher', name });
+      // Update the signUp call to match the new function signature
+      await signUp(email, password, 'teacher', name);
       
       setName('');
       setEmail('');
