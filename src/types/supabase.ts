@@ -1,4 +1,3 @@
-
 export interface Teacher {
   id: string;
   name: string;
@@ -13,6 +12,7 @@ export interface Student {
   teacher_id: string;
   name: string;
   unique_student_id: string;
+  school_id: string; // Added missing school_id field
   created_at?: string;
 }
 

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -39,7 +38,7 @@ const StudentsPage = () => {
       if (user) {
         const { data, error } = await supabase
           .from('teachers')
-          .select('id')
+          .select('id, school_id') // Make sure to fetch school_id as well
           .eq('id', user.id)
           .single();
         

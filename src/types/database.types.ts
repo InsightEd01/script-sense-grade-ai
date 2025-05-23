@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   email: string;
@@ -19,6 +18,7 @@ export interface Student {
   teacher_id: string;
   name: string;
   unique_student_id: string;
+  school_id: string; // Added missing school_id field
 }
 
 export interface School {
