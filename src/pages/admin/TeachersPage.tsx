@@ -14,11 +14,13 @@ import { getTeachers, deleteTeacher, updateTeacher } from '@/services/dataServic
 import { useAuth } from '@/contexts/AuthContext';
 import { Loading } from '@/components/ui/loading';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TeacherWithUser {
   id: string;
   name: string;
   admin_id?: string;
+  school_id?: string;
   users?: {
     email: string;
   } | null;
@@ -31,7 +33,7 @@ const TeachersPage = () => {
   const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
-  const { signUp, user, schoolId } = useAuth();
+  const { user, schoolId } = useAuth();
   const queryClient = useQueryClient();
 
   const [name, setName] = useState('');
@@ -94,11 +96,63 @@ const TeachersPage = () => {
       return;
     }
 
+    if (!schoolId) {
+      toast({
+        title: "Error",
+        description: "School information is required to create a teacher.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // Update the signUp call to match the new function signature
-      await signUp(email, password, 'teacher', name);
+      // Create auth user first
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: email,
+        password: password,
+        user_metadata: {
+          name: name,
+          role: 'teacher'
+        }
+      });
+
+      if (authError) {
+        throw authError;
+      }
+
+      if (!authData.user) {
+        throw new Error("Failed to create user account");
+      }
+
+      // Create user record in public.users table
+      const { error: userError } = await supabase
+        .from('users')
+        .insert({
+          id: authData.user.id,
+          email: email,
+          role: 'teacher',
+          school_id: schoolId
+        });
+
+      if (userError) {
+        throw userError;
+      }
+
+      // Create teacher record with proper school_id and admin_id
+      const { error: teacherError } = await supabase
+        .from('teachers')
+        .insert({
+          id: authData.user.id,
+          name: name,
+          school_id: schoolId,
+          admin_id: user?.id
+        });
+
+      if (teacherError) {
+        throw teacherError;
+      }
       
       setName('');
       setEmail('');
@@ -154,12 +208,12 @@ const TeachersPage = () => {
     updateTeacherMutation.mutate({ id: selectedTeacherId, name: editName });
   };
 
-  // Filter teachers by current admin
+  // Filter teachers by current admin's school
   const filteredTeachers = teachers?.filter((teacher: TeacherWithUser) => {
     const matchesSearch = teacher.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (teacher.users?.email && teacher.users.email.toLowerCase().includes(searchTerm.toLowerCase()));
-    const belongsToAdmin = user && (!teacher.admin_id || teacher.admin_id === user.id);
-    return matchesSearch && belongsToAdmin;
+    const belongsToSchool = teacher.school_id === schoolId;
+    return matchesSearch && belongsToSchool;
   });
 
   return (
@@ -254,7 +308,7 @@ const TeachersPage = () => {
           <CardHeader>
             <CardTitle>Teacher Management</CardTitle>
             <CardDescription>
-              View and manage all teacher accounts in the system.
+              View and manage all teacher accounts in your school.
             </CardDescription>
             <div className="flex items-center space-x-2 mt-4">
               <div className="relative flex-1">
@@ -329,63 +383,63 @@ const TeachersPage = () => {
             )}
           </CardContent>
         </Card>
-      </div>
 
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Teacher</DialogTitle>
-            <DialogDescription>
-              Update the teacher's information.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-name" className="text-right">
-                Name
-              </Label>
-              <Input
-                id="edit-name"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                className="col-span-3"
-              />
+        {/* Edit Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Teacher</DialogTitle>
+              <DialogDescription>
+                Update the teacher's information.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-name" className="text-right">
+                  Name
+                </Label>
+                <Input
+                  id="edit-name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="col-span-3"
+                />
+              </div>
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleUpdateTeacher}
-              className="bg-stylus-primary hover:bg-blue-800"
-            >
-              Update Teacher
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleUpdateTeacher}
+                className="bg-stylus-primary hover:bg-blue-800"
+              >
+                Update Teacher
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the teacher account and all associated data.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleConfirmDelete}
-              className="bg-red-500 hover:bg-red-700"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the teacher account and all associated data.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleConfirmDelete}
+                className="bg-red-500 hover:bg-red-700"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </DashboardLayout>
   );
 };

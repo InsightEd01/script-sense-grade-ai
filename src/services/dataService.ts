@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { AnswerScript, Examination, Question, Student, Subject, Teacher } from '@/types/supabase';
 
@@ -307,15 +308,16 @@ export async function updateQuestion(
   return data as Question;
 }
 
-// Teachers
+// Teachers - Updated to use the new teacher_details view and proper joins
 export async function getTeachers(): Promise<Teacher[]> {
   try {
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError) throw userError;
 
+    // Use the new teacher_details view for better data access
     const { data, error } = await supabase
-      .from('teachers')
-      .select('*, users(*)')
+      .from('teacher_details')
+      .select('*')
       .order('name', { ascending: true });
 
     if (error) {
@@ -323,8 +325,16 @@ export async function getTeachers(): Promise<Teacher[]> {
       throw error;
     }
 
-    // The RLS policies will automatically filter teachers based on admin custody
-    return data || [];
+    // Transform the data to match the expected Teacher interface
+    const teachers = data?.map(teacher => ({
+      id: teacher.id,
+      name: teacher.name,
+      admin_id: teacher.admin_id,
+      school_id: teacher.school_id,
+      users: teacher.email ? { email: teacher.email } : null
+    })) || [];
+
+    return teachers;
   } catch (error) {
     console.error('getTeachers error:', error);
     throw error;
@@ -333,17 +343,7 @@ export async function getTeachers(): Promise<Teacher[]> {
 
 export async function deleteTeacher(id: string): Promise<void> {
   try {
-    const { data: teacher, error: teacherError } = await supabase
-      .from('teachers')
-      .select('*, users(*)')
-      .eq('id', id)
-      .single();
-    
-    if (teacherError) {
-      console.error('Error getting teacher details:', teacherError);
-      throw teacherError;
-    }
-    
+    // First delete the teacher record (this will cascade to related data)
     const { error: deleteError } = await supabase
       .from('teachers')
       .delete()
@@ -354,15 +354,15 @@ export async function deleteTeacher(id: string): Promise<void> {
       throw deleteError;
     }
     
-    if (teacher && teacher.id) {
-      const { error: userDeleteError } = await supabase
-        .from('users')
-        .delete()
-        .eq('id', id);
+    // Then delete the user record if it exists
+    const { error: userDeleteError } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', id);
         
-      if (userDeleteError) {
-        console.error('Error deleting user record:', userDeleteError);
-      }
+    if (userDeleteError) {
+      console.error('Error deleting user record:', userDeleteError);
+      // Don't throw here as the teacher is already deleted
     }
   } catch (error) {
     console.error('deleteTeacher error:', error);

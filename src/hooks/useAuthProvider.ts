@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -273,7 +274,7 @@ export const useAuthProvider = () => {
         throw new Error('Failed to create user record. Please try again.');
       }
       
-      // Create teacher record if role is teacher
+      // Create teacher record if role is teacher and we have a school
       if (role === 'teacher') {
         const { error: teacherError } = await supabase
           .from('teachers')

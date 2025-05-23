@@ -511,6 +511,13 @@ export type Database = {
             foreignKeyName: "segmentation_corrections_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
+            referencedRelation: "teacher_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "segmentation_corrections_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
             referencedRelation: "teachers"
             referencedColumns: ["id"]
           },
@@ -536,6 +543,13 @@ export type Database = {
           unique_student_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "students_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_details"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "students_teacher_id_fkey"
             columns: ["teacher_id"]
@@ -584,6 +598,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "users_view"
             referencedColumns: ["school_id"]
+          },
+          {
+            foreignKeyName: "subjects_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_details"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "subjects_teacher_id_fkey"
@@ -705,26 +726,26 @@ export type Database = {
           admin_id: string | null
           id: string
           name: string
-          school_id: string | null
+          school_id: string
         }
         Insert: {
           admin_id?: string | null
           id: string
           name: string
-          school_id?: string | null
+          school_id: string
         }
         Update: {
           admin_id?: string | null
           id?: string
           name?: string
-          school_id?: string | null
+          school_id?: string
         }
         Relationships: [
           {
             foreignKeyName: "teachers_admin_id_fkey"
             columns: ["admin_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "users_view"
             referencedColumns: ["id"]
           },
           {
@@ -795,6 +816,46 @@ export type Database = {
       }
     }
     Views: {
+      teacher_details: {
+        Row: {
+          admin_id: string | null
+          email: string | null
+          id: string | null
+          name: string | null
+          school_id: string | null
+          school_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teachers_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teachers_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teachers_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teachers_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "users_view"
+            referencedColumns: ["school_id"]
+          },
+        ]
+      }
       users_view: {
         Row: {
           created_at: string | null
@@ -811,6 +872,10 @@ export type Database = {
       }
     }
     Functions: {
+      get_school_name_for_user: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_user_school_id: {
         Args: Record<PropertyKey, never>
         Returns: string
