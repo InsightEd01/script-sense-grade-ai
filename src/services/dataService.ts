@@ -71,10 +71,42 @@ export async function deleteAnswerScript(id: string): Promise<void> {
 
 // Students
 export async function getStudents(): Promise<Student[]> {
-  const { data, error } = await supabase
+  // Get the current user's information first to fetch students in their school
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  
+  if (userError) {
+    console.error('Error getting user:', userError);
+    throw userError;
+  }
+  
+  // Get the user's school_id from the users table
+  const { data: currentUser, error: currentUserError } = await supabase
+    .from('users')
+    .select('school_id, role')
+    .eq('id', userData.user.id)
+    .single();
+  
+  if (currentUserError) {
+    console.error('Error getting current user data:', currentUserError);
+    throw currentUserError;
+  }
+
+  let query = supabase
     .from('students')
-    .select('*')
-    .order('name', { ascending: true });
+    .select('*');
+    
+  // Filter students based on role
+  if (currentUser.role === 'teacher') {
+    // Teachers can only see their own students
+    query = query.eq('teacher_id', userData.user.id);
+  } else if (currentUser.role === 'admin' && currentUser.school_id) {
+    // Admins can see all students in their school
+    query = query.eq('school_id', currentUser.school_id);
+  }
+  
+  query = query.order('name', { ascending: true });
+  
+  const { data, error } = await query;
 
   if (error) {
     console.error('Error fetching students:', error);
@@ -89,9 +121,27 @@ export async function createStudent(student: {
   name: string;
   unique_student_id: string;
 }): Promise<Student> {
+  // Get the teacher's school_id
+  const { data: teacherData, error: teacherError } = await supabase
+    .from('teachers')
+    .select('school_id')
+    .eq('id', student.teacher_id)
+    .single();
+    
+  if (teacherError) {
+    console.error('Error getting teacher data:', teacherError);
+    throw teacherError;
+  }
+  
+  // Add the school_id to the student record
+  const studentWithSchool = {
+    ...student,
+    school_id: teacherData.school_id
+  };
+
   const { data, error } = await supabase
     .from('students')
-    .insert(student)
+    .insert(studentWithSchool)
     .select()
     .single();
 
@@ -314,11 +364,27 @@ export async function getTeachers(): Promise<Teacher[]> {
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError) throw userError;
 
+    // Get current user's role and school_id
+    const { data: currentUser, error: currentUserError } = await supabase
+      .from('users')
+      .select('role, school_id')
+      .eq('id', userData.user.id)
+      .single();
+      
+    if (currentUserError) throw currentUserError;
+
     // Use the new teacher_details view for better data access
-    const { data, error } = await supabase
-      .from('teacher_details')
-      .select('*')
-      .order('name', { ascending: true });
+    let query = supabase.from('teacher_details').select('*');
+    
+    // Filter teachers based on role
+    if (currentUser.role === 'admin' && currentUser.school_id) {
+      // Admins can only see teachers in their school
+      query = query.eq('school_id', currentUser.school_id);
+    }
+    
+    query = query.order('name', { ascending: true });
+    
+    const { data, error } = await query;
 
     if (error) {
       console.error('Error fetching teachers:', error);
@@ -331,7 +397,8 @@ export async function getTeachers(): Promise<Teacher[]> {
       name: teacher.name,
       admin_id: teacher.admin_id,
       school_id: teacher.school_id,
-      users: teacher.email ? { email: teacher.email } : null
+      email: teacher.email,
+      school_name: teacher.school_name
     })) || [];
 
     return teachers;

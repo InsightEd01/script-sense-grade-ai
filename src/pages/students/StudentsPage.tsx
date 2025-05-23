@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -26,7 +27,7 @@ const studentFormSchema = z.object({
 type StudentFormValues = z.infer<typeof studentFormSchema>;
 
 const StudentsPage = () => {
-  const { user } = useAuth();
+  const { user, schoolId } = useAuth();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -48,22 +49,38 @@ const StudentsPage = () => {
           if (error.code === 'PGRST116') {
             const { data: userData } = await supabase
               .from('users')
-              .select('role, email')
+              .select('role, email, school_id')
               .eq('id', user.id)
               .single();
             
             if (userData && userData.role === 'teacher') {
+              // Ensure we have a school_id from the user record
+              if (!userData.school_id) {
+                toast({
+                  variant: "destructive",
+                  title: "School Association Missing",
+                  description: "You need to be associated with a school. Please contact your administrator.",
+                });
+                return;
+              }
+              
               const { error: insertError } = await supabase
                 .from('teachers')
                 .insert({
                   id: user.id,
-                  name: userData.email.split('@')[0] // Use email prefix as name if not available
+                  name: userData.email.split('@')[0], // Use email prefix as name if not available
+                  school_id: userData.school_id // Include required school_id
                 });
               
               if (!insertError) {
                 setTeacherId(user.id);
               } else {
                 console.error('Failed to create teacher record:', insertError);
+                toast({
+                  variant: "destructive",
+                  title: "Error",
+                  description: "Failed to create teacher record. Please contact your administrator.",
+                });
               }
             }
           }
@@ -74,7 +91,7 @@ const StudentsPage = () => {
     };
     
     checkTeacherRecord();
-  }, [user]);
+  }, [user, toast]);
 
   const { 
     data: students,
