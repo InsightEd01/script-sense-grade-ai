@@ -56,14 +56,23 @@ const SignUpPage = () => {
       schoolName: "",
       schoolAddress: "",
     },
+    mode: "onChange",
   });
 
   const onSubmit = async (data: SignUpFormValues) => {
     try {
+      // Create schoolInfo object only for admin role
       const schoolInfo = selectedRole === 'admin' ? {
         name: data.schoolName || '',
         address: data.schoolAddress
       } : undefined;
+      
+      console.log("Signing up user:", {
+        email: data.email,
+        role: selectedRole,
+        name: data.name,
+        schoolInfo
+      });
       
       const { user } = await signUp(data.email, data.password, selectedRole, data.name, schoolInfo);
       

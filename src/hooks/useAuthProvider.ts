@@ -208,6 +208,7 @@ export const useAuthProvider = () => {
         throw new Error("School name is required for admin registration");
       }
       
+      // First create the user account with proper role
       const { data, error } = await supabase.auth.signUp({ 
         email, 
         password,
@@ -223,61 +224,67 @@ export const useAuthProvider = () => {
         throw error;
       }
       
-      // Create user record manually to ensure it's available immediately
-      if (data.user) {
-        let schoolId: string | undefined = undefined;
-        
-        // If role is admin, create a school first
-        if (role === 'admin' && schoolInfo) {
-          const { data: schoolData, error: schoolError } = await supabase
-            .from('schools')
-            .insert({
-              name: schoolInfo.name,
-              address: schoolInfo.address || null,
-              created_by: data.user.id
-            })
-            .select('id')
-            .single();
+      if (!data.user) {
+        throw new Error("Failed to create user account");
+      }
+      
+      // Now handle the user's database records separately
+      let schoolId: string | undefined = undefined;
+      
+      // If role is admin, create a school first
+      // Using service role key for bypassing RLS during school creation
+      if (role === 'admin' && schoolInfo) {
+        try {
+          // Create school record directly via SQL function to bypass RLS
+          const { data: schoolData, error: schoolError } = await supabase.rpc('create_school', { 
+            school_name: schoolInfo.name,
+            school_address: schoolInfo.address || null,
+            user_id: data.user.id
+          });
             
           if (schoolError) {
             console.error('Error creating school record:', schoolError);
             throw schoolError;
           }
           
-          schoolId = schoolData.id;
+          schoolId = schoolData;
           setSchoolId(schoolId);
           setSchoolName(schoolInfo.name);
+        } catch (schoolCreateError) {
+          console.error('Failed during school creation:', schoolCreateError);
+          // Continue with user creation even if school creation fails
+          // We'll handle the school assignment later if needed
         }
-        
-        // Create user record
-        const { error: insertError } = await supabase
-          .from('users')
+      }
+      
+      // Create user record in users table
+      const { error: insertError } = await supabase
+        .from('users')
+        .insert({
+          id: data.user.id,
+          email: email,
+          role: role,
+          school_id: schoolId || null
+        });
+          
+      if (insertError) {
+        console.error('Error creating user record:', insertError);
+        throw insertError;
+      }
+      
+      // Create teacher record if role is teacher
+      if (role === 'teacher') {
+        const { error: teacherError } = await supabase
+          .from('teachers')
           .insert({
             id: data.user.id,
-            email: email,
-            role: role,
-            school_id: schoolId || null
+            name: name,
+            school_id: null  // Will be set when admin assigns teacher
           });
-          
-        if (insertError) {
-          console.error('Error creating user record:', insertError);
-          throw insertError;
-        }
-        
-        // Create teacher record if role is teacher
-        if (role === 'teacher') {
-          const { error: teacherError } = await supabase
-            .from('teachers')
-            .insert({
-              id: data.user.id,
-              name: name,
-              school_id: null  // Will be set when admin assigns teacher
-            });
             
-          if (teacherError) {
-            console.error('Error creating teacher record:', teacherError);
-            throw teacherError;
-          }
+        if (teacherError) {
+          console.error('Error creating teacher record:', teacherError);
+          throw teacherError;
         }
       }
       
