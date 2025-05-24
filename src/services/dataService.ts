@@ -354,7 +354,7 @@ export async function updateQuestion(
   return data as Question;
 }
 
-// Teachers - Updated to handle admin users properly
+// Teachers - Updated to use edge function for creation
 export async function getTeachers(): Promise<Teacher[]> {
   try {
     const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -398,6 +398,37 @@ export async function getTeachers(): Promise<Teacher[]> {
     return teachers;
   } catch (error) {
     console.error('getTeachers error:', error);
+    throw error;
+  }
+}
+
+export async function createTeacher(teacherData: {
+  email: string;
+  password: string;
+  name: string;
+}): Promise<void> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw new Error('No active session');
+    }
+
+    const response = await supabase.functions.invoke('create-teacher', {
+      body: teacherData,
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (response.error) {
+      throw new Error(response.error.message || 'Failed to create teacher');
+    }
+
+    if (!response.data?.success) {
+      throw new Error(response.data?.error || 'Failed to create teacher');
+    }
+  } catch (error) {
+    console.error('createTeacher error:', error);
     throw error;
   }
 }
