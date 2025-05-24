@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -7,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Search, Trash2, Edit } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getStudents, createStudent, deleteStudent } from '@/services/dataService';
+import { getStudents, createStudent, deleteStudent, ensureAdminTeacherRecord } from '@/services/dataService';
 import { Student } from '@/types/supabase';
 import { Loading } from '@/components/ui/loading';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -36,24 +37,23 @@ const StudentsPage = () => {
     // Check if the teacher record exists for the current user
     const checkTeacherRecord = async () => {
       if (user) {
-        const { data, error } = await supabase
-          .from('teachers')
-          .select('id, school_id') // Make sure to fetch school_id as well
-          .eq('id', user.id)
-          .single();
-        
-        if (error) {
-          console.error('Error checking teacher record:', error);
-          // If teacher record doesn't exist, create it
-          if (error.code === 'PGRST116') {
+        try {
+          const { data, error } = await supabase
+            .from('teachers')
+            .select('id, school_id')
+            .eq('id', user.id)
+            .single();
+          
+          if (error && error.code === 'PGRST116') {
+            // Teacher record doesn't exist, check if user is admin
             const { data: userData } = await supabase
               .from('users')
               .select('role, email, school_id')
               .eq('id', user.id)
               .single();
             
-            if (userData && userData.role === 'teacher') {
-              // Ensure we have a school_id from the user record
+            if (userData && (userData.role === 'admin' || userData.role === 'teacher')) {
+              // Ensure we have a school_id
               if (!userData.school_id) {
                 toast({
                   variant: "destructive",
@@ -63,28 +63,20 @@ const StudentsPage = () => {
                 return;
               }
               
-              const { error: insertError } = await supabase
-                .from('teachers')
-                .insert({
-                  id: user.id,
-                  name: userData.email.split('@')[0], // Use email prefix as name if not available
-                  school_id: userData.school_id // Include required school_id
-                });
-              
-              if (!insertError) {
-                setTeacherId(user.id);
-              } else {
-                console.error('Failed to create teacher record:', insertError);
-                toast({
-                  variant: "destructive",
-                  title: "Error",
-                  description: "Failed to create teacher record. Please contact your administrator.",
-                });
-              }
+              // Create teacher record for admin/teacher user
+              await ensureAdminTeacherRecord(user.id);
+              setTeacherId(user.id);
             }
+          } else if (data) {
+            setTeacherId(data.id);
           }
-        } else if (data) {
-          setTeacherId(data.id);
+        } catch (error) {
+          console.error('Error checking teacher record:', error);
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to check teacher record. Please contact your administrator.",
+          });
         }
       }
     };

@@ -29,7 +29,7 @@ export async function createAnswerScript(answerScript: {
 export async function getAnswerScriptsByExamination(examinationId: string): Promise<AnswerScript[]> {
   const { data, error } = await supabase
     .from('answer_scripts')
-    .select('*, student:students(*, school_id)')
+    .select('*, student:students(*)')
     .eq('examination_id', examinationId)
     .order('upload_timestamp', { ascending: false });
 
@@ -44,7 +44,7 @@ export async function getAnswerScriptsByExamination(examinationId: string): Prom
 export async function getAnswerScriptById(id: string): Promise<AnswerScript> {
   const { data, error } = await supabase
     .from('answer_scripts')
-    .select('*, student:students(*, school_id), examination:examinations(*)')
+    .select('*, student:students(*), examination:examinations(*)')
     .eq('id', id)
     .single();
 
@@ -90,10 +90,10 @@ export async function getStudents(): Promise<Student[]> {
     throw currentUserError;
   }
 
-  // Create the base query
+  // Create the base query - students table now has school_id
   let query = supabase
     .from('students')
-    .select('*, school_id');
+    .select('*');
     
   // Filter students based on role
   if (currentUser.role === 'teacher') {
@@ -140,7 +140,7 @@ export async function createStudent(student: {
   const { data, error } = await supabase
     .from('students')
     .insert(studentWithSchool)
-    .select('*, school_id')
+    .select('*')
     .single();
 
   if (error) {
@@ -354,7 +354,7 @@ export async function updateQuestion(
   return data as Question;
 }
 
-// Teachers - Updated to use the new teacher_details view and proper joins
+// Teachers - Updated to handle admin users properly
 export async function getTeachers(): Promise<Teacher[]> {
   try {
     const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -445,6 +445,40 @@ export async function updateTeacher(id: string, updates: { name: string }): Prom
   } catch (error) {
     console.error('updateTeacher error:', error);
     throw error;
+  }
+}
+
+// Helper function to ensure admin users have teacher records
+export async function ensureAdminTeacherRecord(userId: string): Promise<void> {
+  try {
+    // Check if teacher record exists
+    const { data: existingTeacher } = await supabase
+      .from('teachers')
+      .select('id')
+      .eq('id', userId)
+      .single();
+
+    if (!existingTeacher) {
+      // Get user info to create teacher record
+      const { data: userData } = await supabase
+        .from('users')
+        .select('email, school_id')
+        .eq('id', userId)
+        .single();
+
+      if (userData && userData.school_id) {
+        await supabase
+          .from('teachers')
+          .insert({
+            id: userId,
+            name: userData.email.split('@')[0],
+            school_id: userData.school_id
+          });
+      }
+    }
+  } catch (error) {
+    console.error('Error ensuring admin teacher record:', error);
+    // Don't throw - this is a helper function
   }
 }
 

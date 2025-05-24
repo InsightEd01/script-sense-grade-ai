@@ -527,22 +527,39 @@ export type Database = {
         Row: {
           id: string
           name: string
+          school_id: string
           teacher_id: string
           unique_student_id: string
         }
         Insert: {
           id?: string
           name: string
+          school_id: string
           teacher_id: string
           unique_student_id: string
         }
         Update: {
           id?: string
           name?: string
+          school_id?: string
           teacher_id?: string
           unique_student_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "students_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "users_view"
+            referencedColumns: ["school_id"]
+          },
           {
             foreignKeyName: "students_teacher_id_fkey"
             columns: ["teacher_id"]
