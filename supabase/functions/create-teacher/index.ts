@@ -13,17 +13,24 @@ serve(async (req) => {
   }
 
   try {
+    // Create admin client with service role key for admin operations
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    // Create regular client for user authentication
+    const supabaseUser = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     )
 
     // Get the current user from the request
     const authHeader = req.headers.get('Authorization')!
     const token = authHeader.replace('Bearer ', '')
     
-    // Verify the current user is authenticated
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
+    // Verify the current user is authenticated using the user client
+    const { data: { user }, error: authError } = await supabaseUser.auth.getUser(token)
     if (authError || !user) {
       console.error('Authentication error:', authError)
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -34,7 +41,7 @@ serve(async (req) => {
 
     console.log('Authenticated user:', user.id)
 
-    // Check if user is admin using the new school_admins table
+    // Check if user is admin using the admin client (bypasses RLS)
     const { data: adminData, error: adminCheckError } = await supabaseAdmin
       .from('school_admins')
       .select('school_id, is_active')
@@ -42,24 +49,26 @@ serve(async (req) => {
       .eq('is_active', true)
       .single()
 
+    let schoolId = null;
+
     if (adminCheckError || !adminData) {
-      console.error('Admin check error:', adminCheckError)
+      console.log('Admin check via school_admins failed, checking users table:', adminCheckError)
       
-      // Fallback: check if user is admin in users table
-      const { data: userData } = await supabaseAdmin
+      // Fallback: check if user is admin in users table using admin client
+      const { data: userData, error: userError } = await supabaseAdmin
         .from('users')
         .select('role, school_id')
         .eq('id', user.id)
         .single()
 
-      if (!userData || userData.role !== 'admin') {
+      if (userError || !userData || userData.role !== 'admin') {
+        console.error('User is not an admin:', userError)
         return new Response(JSON.stringify({ error: 'Only admins can create teachers' }), {
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
 
-      // If user is admin but not in school_admins table, use their school_id from users table
       if (!userData.school_id) {
         return new Response(JSON.stringify({ error: 'Admin must be associated with a school' }), {
           status: 403,
@@ -67,10 +76,12 @@ serve(async (req) => {
         })
       }
 
-      adminData.school_id = userData.school_id
+      schoolId = userData.school_id
+    } else {
+      schoolId = adminData.school_id
     }
 
-    console.log('Admin verified for school:', adminData.school_id)
+    console.log('Admin verified for school:', schoolId)
 
     const { email, password, name } = await req.json()
 
@@ -81,7 +92,7 @@ serve(async (req) => {
       })
     }
 
-    // Create the user account
+    // Create the user account using admin client
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -102,14 +113,14 @@ serve(async (req) => {
 
     console.log('User created:', newUser.user.id)
 
-    // Create user record in users table
+    // Create user record in users table using admin client
     const { error: userError } = await supabaseAdmin
       .from('users')
       .insert({
         id: newUser.user.id,
         email: email,
         role: 'teacher',
-        school_id: adminData.school_id
+        school_id: schoolId
       })
 
     if (userError) {
@@ -131,13 +142,13 @@ serve(async (req) => {
       .eq('user_id', user.id)
       .single()
 
-    // Create teacher record
+    // Create teacher record using admin client
     const { error: teacherError } = await supabaseAdmin
       .from('teachers')
       .insert({
         id: newUser.user.id,
         name: name,
-        school_id: adminData.school_id,
+        school_id: schoolId,
         created_by_admin: adminRecord?.id || null
       })
 
@@ -160,7 +171,7 @@ serve(async (req) => {
         id: newUser.user.id, 
         email, 
         name,
-        school_id: adminData.school_id
+        school_id: schoolId
       } 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

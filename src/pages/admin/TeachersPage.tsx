@@ -10,20 +10,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { PlusCircle, Search, Trash2, UserPlus, Pencil } from 'lucide-react';
-import { getTeachers, deleteTeacher, updateTeacher } from '@/services/dataService';
+import { getTeachers, deleteTeacher, updateTeacher, createTeacher } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loading } from '@/components/ui/loading';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 
 interface TeacherWithUser {
   id: string;
   name: string;
-  admin_id?: string;
+  created_by_admin?: string;
   school_id?: string;
-  users?: {
-    email: string;
-  } | null;
+  email?: string;
 }
 
 const TeachersPage = () => {
@@ -46,6 +43,29 @@ const TeachersPage = () => {
   const { data: teachers, isLoading, error } = useQuery({
     queryKey: ['teachers'],
     queryFn: getTeachers
+  });
+
+  const createTeacherMutation = useMutation({
+    mutationFn: createTeacher,
+    onSuccess: () => {
+      queryClient.invalidateQueries({queryKey: ['teachers']});
+      setIsAddDialogOpen(false);
+      setName('');
+      setEmail('');
+      setPassword('');
+      setConfirmPassword('');
+      toast({
+        title: "Teacher created",
+        description: "The teacher has been successfully created.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to create teacher: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive"
+      });
+    }
   });
 
   const updateTeacherMutation = useMutation({
@@ -96,86 +116,11 @@ const TeachersPage = () => {
       return;
     }
 
-    if (!schoolId) {
-      toast({
-        title: "Error",
-        description: "School information is required to create a teacher.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      // Create auth user first
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: email,
-        password: password,
-        user_metadata: {
-          name: name,
-          role: 'teacher'
-        }
-      });
-
-      if (authError) {
-        throw authError;
-      }
-
-      if (!authData.user) {
-        throw new Error("Failed to create user account");
-      }
-
-      // Create user record in public.users table
-      const { error: userError } = await supabase
-        .from('users')
-        .insert({
-          id: authData.user.id,
-          email: email,
-          role: 'teacher',
-          school_id: schoolId
-        });
-
-      if (userError) {
-        throw userError;
-      }
-
-      // Create teacher record with proper school_id and admin_id
-      const { error: teacherError } = await supabase
-        .from('teachers')
-        .insert({
-          id: authData.user.id,
-          name: name,
-          school_id: schoolId,
-          admin_id: user?.id
-        });
-
-      if (teacherError) {
-        throw teacherError;
-      }
-      
-      setName('');
-      setEmail('');
-      setPassword('');
-      setConfirmPassword('');
-      setIsAddDialogOpen(false);
-      
-      toast({
-        title: "Success",
-        description: "Teacher added successfully",
-      });
-      
-      queryClient.invalidateQueries({queryKey: ['teachers']});
-    } catch (error) {
-      console.error('Add teacher error:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : 'Failed to add teacher',
-        variant: "destructive"
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    createTeacherMutation.mutate({
+      email,
+      password,
+      name
+    });
   };
 
   const handleDeleteClick = (id: string) => {
@@ -211,7 +156,7 @@ const TeachersPage = () => {
   // Filter teachers by current admin's school
   const filteredTeachers = teachers?.filter((teacher: TeacherWithUser) => {
     const matchesSearch = teacher.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (teacher.users?.email && teacher.users.email.toLowerCase().includes(searchTerm.toLowerCase()));
+      (teacher.email && teacher.email.toLowerCase().includes(searchTerm.toLowerCase()));
     const belongsToSchool = teacher.school_id === schoolId;
     return matchesSearch && belongsToSchool;
   });
@@ -293,10 +238,10 @@ const TeachersPage = () => {
                 </Button>
                 <Button 
                   onClick={handleAddTeacher} 
-                  disabled={isSubmitting}
+                  disabled={createTeacherMutation.isPending}
                   className="bg-stylus-primary hover:bg-blue-800"
                 >
-                  {isSubmitting ? <Loading size="sm" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                  {createTeacherMutation.isPending ? <Loading size="sm" /> : <UserPlus className="mr-2 h-4 w-4" />}
                   Add Teacher
                 </Button>
               </DialogFooter>
@@ -348,7 +293,7 @@ const TeachersPage = () => {
                   {filteredTeachers.map((teacher: TeacherWithUser) => (
                     <TableRow key={teacher.id}>
                       <TableCell className="font-medium">{teacher.name}</TableCell>
-                      <TableCell>{teacher.users?.email}</TableCell>
+                      <TableCell>{teacher.email}</TableCell>
                       <TableCell className="text-right space-x-2">
                         <Button
                           variant="ghost"
