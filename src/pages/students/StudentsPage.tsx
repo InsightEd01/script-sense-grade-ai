@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Search, Trash2, Edit } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getStudents, createStudent, deleteStudent, ensureAdminTeacherRecord } from '@/services/dataService';
+import { getStudents, createStudent, deleteStudent, ensureAdminSchoolRecord } from '@/services/dataService';
 import { Student } from '@/types/supabase';
 import { Loading } from '@/components/ui/loading';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -63,9 +63,23 @@ const StudentsPage = () => {
                 return;
               }
               
+              // For admins, ensure they have both school_admin and teacher records
+              if (userData.role === 'admin') {
+                await ensureAdminSchoolRecord(user.id);
+              }
+              
               // Create teacher record for admin/teacher user
-              await ensureAdminTeacherRecord(user.id);
-              setTeacherId(user.id);
+              const { error: createError } = await supabase
+                .from('teachers')
+                .insert({
+                  id: user.id,
+                  name: userData.email.split('@')[0],
+                  school_id: userData.school_id
+                });
+              
+              if (!createError) {
+                setTeacherId(user.id);
+              }
             }
           } else if (data) {
             setTeacherId(data.id);

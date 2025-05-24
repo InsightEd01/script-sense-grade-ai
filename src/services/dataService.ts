@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { AnswerScript, Examination, Question, Student, Subject, Teacher } from '@/types/supabase';
 
@@ -78,7 +79,7 @@ export async function getStudents(): Promise<Student[]> {
     throw userError;
   }
   
-  // Get the user's school_id from the users table
+  // Get the user's school_id from the users table or school_admins table
   const { data: currentUser, error: currentUserError } = await supabase
     .from('users')
     .select('school_id, role')
@@ -354,7 +355,7 @@ export async function updateQuestion(
   return data as Question;
 }
 
-// Teachers - Updated to use edge function for creation
+// Teachers - Updated to use new school_admins structure
 export async function getTeachers(): Promise<Teacher[]> {
   try {
     const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -369,7 +370,7 @@ export async function getTeachers(): Promise<Teacher[]> {
       
     if (currentUserError) throw currentUserError;
 
-    // Create the base query
+    // Create the base query using the updated teacher_details view
     let query = supabase.from('teacher_details').select('*');
     
     // Filter teachers based on role
@@ -389,7 +390,7 @@ export async function getTeachers(): Promise<Teacher[]> {
     const teachers = data?.map(teacher => ({
       id: teacher.id,
       name: teacher.name,
-      admin_id: teacher.admin_id,
+      created_by_admin: teacher.created_by_admin, // Updated field name
       school_id: teacher.school_id,
       email: teacher.email,
       school_name: teacher.school_name
@@ -479,9 +480,47 @@ export async function updateTeacher(id: string, updates: { name: string }): Prom
   }
 }
 
-// Helper function to ensure admin users have teacher records
+// Helper function to ensure admin users have school_admin records
+export async function ensureAdminSchoolRecord(userId: string): Promise<void> {
+  try {
+    // Check if school_admin record exists
+    const { data: existingAdmin } = await supabase
+      .from('school_admins')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+
+    if (!existingAdmin) {
+      // Get user info to create school_admin record
+      const { data: userData } = await supabase
+        .from('users')
+        .select('email, school_id, role')
+        .eq('id', userId)
+        .single();
+
+      if (userData && userData.role === 'admin' && userData.school_id) {
+        await supabase
+          .from('school_admins')
+          .insert({
+            user_id: userId,
+            school_id: userData.school_id,
+            name: userData.email.split('@')[0],
+            email: userData.email
+          });
+      }
+    }
+  } catch (error) {
+    console.error('Error ensuring admin school record:', error);
+    // Don't throw - this is a helper function
+  }
+}
+
+// Updated helper function for backward compatibility
 export async function ensureAdminTeacherRecord(userId: string): Promise<void> {
   try {
+    // First ensure they have a school_admin record
+    await ensureAdminSchoolRecord(userId);
+    
     // Check if teacher record exists
     const { data: existingTeacher } = await supabase
       .from('teachers')
@@ -510,6 +549,87 @@ export async function ensureAdminTeacherRecord(userId: string): Promise<void> {
   } catch (error) {
     console.error('Error ensuring admin teacher record:', error);
     // Don't throw - this is a helper function
+  }
+}
+
+// School Admins - New functions for managing school admins
+export async function getSchoolAdmins(schoolId?: string) {
+  try {
+    let query = supabase.from('school_admin_details').select('*');
+    
+    if (schoolId) {
+      query = query.eq('school_id', schoolId);
+    }
+    
+    const { data, error } = await query.order('name', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching school admins:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('getSchoolAdmins error:', error);
+    throw error;
+  }
+}
+
+export async function createSchoolAdmin(adminData: {
+  email: string;
+  password: string;
+  name: string;
+  school_id: string;
+}) {
+  try {
+    // This would typically be handled by a master admin through an edge function
+    // For now, we'll throw an error to indicate this needs to be implemented
+    throw new Error('Creating school admins requires master admin privileges. Please use the master admin interface.');
+  } catch (error) {
+    console.error('createSchoolAdmin error:', error);
+    throw error;
+  }
+}
+
+export async function updateSchoolAdmin(adminId: string, updates: {
+  name?: string;
+  email?: string;
+  is_active?: boolean;
+}) {
+  try {
+    const { data, error } = await supabase
+      .from('school_admins')
+      .update(updates)
+      .eq('id', adminId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating school admin:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('updateSchoolAdmin error:', error);
+    throw error;
+  }
+}
+
+export async function deleteSchoolAdmin(adminId: string) {
+  try {
+    const { error } = await supabase
+      .from('school_admins')
+      .delete()
+      .eq('id', adminId);
+
+    if (error) {
+      console.error('Error deleting school admin:', error);
+      throw error;
+    }
+  } catch (error) {
+    console.error('deleteSchoolAdmin error:', error);
+    throw error;
   }
 }
 
