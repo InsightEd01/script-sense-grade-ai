@@ -13,16 +13,16 @@ serve(async (req) => {
   }
 
   try {
-    // Create admin client with service role key for admin operations
+    // Create admin client with the correct service role key for admin operations
     const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      'https://pppteoxncuuraqjlrhir.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwcHRlb3huY3V1cmFxamxyaGlyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NDAzNjgwNSwiZXhwIjoyMDU5NjEyODA1fQ.St80m_RyyeVGfwdPWGSJmAJLy6E0iCVcCikh6I3tf1I'
     )
 
     // Create regular client for user authentication
     const supabaseUser = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+      'https://pppteoxncuuraqjlrhir.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwcHRlb3huY3V1cmFxamxyaGlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwMzY4MDUsImV4cCI6MjA1OTYxMjgwNX0.XbnTDdFS7Tjgh3XTsrEZr81bJmsGJ4g6UA3lC_x_KTM'
     )
 
     // Get the current user from the request
@@ -92,7 +92,7 @@ serve(async (req) => {
       })
     }
 
-    // Create the user account using admin client
+    // Create the user account using admin client with service role
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,

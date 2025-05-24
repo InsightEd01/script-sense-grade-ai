@@ -808,19 +808,19 @@ export type Database = {
           created_by_admin: string | null
           id: string
           name: string
-          school_id: string
+          school_id: string | null
         }
         Insert: {
           created_by_admin?: string | null
           id: string
           name: string
-          school_id: string
+          school_id?: string | null
         }
         Update: {
           created_by_admin?: string | null
           id?: string
           name?: string
-          school_id?: string
+          school_id?: string | null
         }
         Relationships: [
           {
