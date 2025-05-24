@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   email: string;
@@ -8,9 +9,11 @@ export interface User {
 export interface Teacher {
   id: string;
   name: string;
-  admin_id?: string;
+  created_by_admin?: string; // Updated from admin_id to created_by_admin
   school_id?: string;
   user?: User;
+  email?: string; // Added email field
+  school_name?: string; // Added school_name field
 }
 
 export interface Student {
@@ -18,7 +21,7 @@ export interface Student {
   teacher_id: string;
   name: string;
   unique_student_id: string;
-  school_id: string; // Added missing school_id field
+  school_id: string;
 }
 
 export interface School {
@@ -97,4 +100,19 @@ export interface GradingResult {
   score: number;
   explanation: string;
   flags?: string[];
+}
+
+// New interface for school admins
+export interface SchoolAdmin {
+  id: string;
+  user_id: string;
+  school_id: string;
+  name: string;
+  email: string;
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
+  is_active: boolean;
+  school_name?: string;
+  role?: string;
 }
