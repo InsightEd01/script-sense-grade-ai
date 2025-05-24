@@ -1,6 +1,5 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { AnswerScript, Examination, Question, Student, Subject, Teacher } from '@/types/supabase';
+import { AnswerScript, Examination, Question, Student, Subject, Teacher } from '@/types/database.types';
 
 // Answer Scripts
 export async function createAnswerScript(answerScript: {
@@ -387,10 +386,10 @@ export async function getTeachers(): Promise<Teacher[]> {
     }
 
     // Transform the data to match the expected Teacher interface
-    const teachers = data?.map(teacher => ({
+    const teachers: Teacher[] = data?.map(teacher => ({
       id: teacher.id,
       name: teacher.name,
-      created_by_admin: teacher.created_by_admin, // Updated field name
+      created_by_admin: teacher.created_by_admin,
       school_id: teacher.school_id,
       email: teacher.email,
       school_name: teacher.school_name
