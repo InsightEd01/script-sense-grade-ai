@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { AnswerScript, Examination, Question, Student, Subject, Teacher } from '@/types/database.types';
 
@@ -354,7 +355,7 @@ export async function updateQuestion(
   return data as Question;
 }
 
-// Teachers - Updated to use new school_admins structure
+// Teachers - Updated to create teachers directly on the client side
 export async function getTeachers(): Promise<Teacher[]> {
   try {
     const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -408,25 +409,73 @@ export async function createTeacher(teacherData: {
   name: string;
 }): Promise<void> {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      throw new Error('No active session');
+    // Get current user and school information
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError) throw userError;
+
+    // Get current user's school_id
+    const { data: currentUser, error: currentUserError } = await supabase
+      .from('users')
+      .select('school_id, role')
+      .eq('id', userData.user.id)
+      .single();
+      
+    if (currentUserError) throw currentUserError;
+
+    if (currentUser.role !== 'admin') {
+      throw new Error('Only admins can create teacher accounts');
     }
 
-    const response = await supabase.functions.invoke('create-teacher', {
-      body: teacherData,
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-      },
+    if (!currentUser.school_id) {
+      throw new Error('Admin must be associated with a school');
+    }
+
+    // Sign up the teacher using the client-side auth
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email: teacherData.email,
+      password: teacherData.password,
+      options: {
+        data: {
+          name: teacherData.name,
+          role: 'teacher',
+          school_id: currentUser.school_id
+        }
+      }
     });
 
-    if (response.error) {
-      throw new Error(response.error.message || 'Failed to create teacher');
+    if (signUpError) {
+      console.error('Error creating teacher account:', signUpError);
+      throw new Error(`Failed to create teacher account: ${signUpError.message}`);
     }
 
-    if (!response.data?.success) {
-      throw new Error(response.data?.error || 'Failed to create teacher');
+    if (!signUpData.user) {
+      throw new Error('Failed to create teacher account - no user returned');
     }
+
+    // Create the teacher record manually since triggers might not work with client-side signup
+    const { error: teacherInsertError } = await supabase
+      .from('teachers')
+      .insert({
+        id: signUpData.user.id,
+        name: teacherData.name,
+        school_id: currentUser.school_id,
+        created_by_admin: userData.user.id
+      });
+
+    if (teacherInsertError) {
+      console.error('Error creating teacher record:', teacherInsertError);
+      // Note: The user account was created but teacher record failed
+      // In production, you might want to handle this cleanup
+      throw new Error(`Teacher account created but failed to create teacher record: ${teacherInsertError.message}`);
+    }
+
+    console.log('Teacher created successfully:', {
+      userId: signUpData.user.id,
+      email: teacherData.email,
+      name: teacherData.name,
+      schoolId: currentUser.school_id
+    });
+
   } catch (error) {
     console.error('createTeacher error:', error);
     throw error;
