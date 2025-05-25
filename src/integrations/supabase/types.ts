@@ -107,6 +107,7 @@ export type Database = {
           manual_grade: number | null
           override_justification: string | null
           question_id: string
+          school_id: string | null
           segmentation_confidence: number | null
           segmentation_method: string | null
           spatial_location: Json | null
@@ -122,6 +123,7 @@ export type Database = {
           manual_grade?: number | null
           override_justification?: string | null
           question_id: string
+          school_id?: string | null
           segmentation_confidence?: number | null
           segmentation_method?: string | null
           spatial_location?: Json | null
@@ -137,6 +139,7 @@ export type Database = {
           manual_grade?: number | null
           override_justification?: string | null
           question_id?: string
+          school_id?: string | null
           segmentation_confidence?: number | null
           segmentation_method?: string | null
           spatial_location?: Json | null
@@ -273,6 +276,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          school_id: string | null
           subject_id: string
           total_marks: number
         }
@@ -280,6 +284,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          school_id?: string | null
           subject_id: string
           total_marks: number
         }
@@ -287,6 +292,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          school_id?: string | null
           subject_id?: string
           total_marks?: number
         }
@@ -395,7 +401,7 @@ export type Database = {
           name: string
           school_id: string
           updated_at: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -406,7 +412,7 @@ export type Database = {
           name: string
           school_id: string
           updated_at?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -417,7 +423,7 @@ export type Database = {
           name?: string
           school_id?: string
           updated_at?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -841,7 +847,7 @@ export type Database = {
             foreignKeyName: "teachers_id_fkey"
             columns: ["id"]
             isOneToOne: true
-            referencedRelation: "users"
+            referencedRelation: "users_view"
             referencedColumns: ["id"]
           },
           {
@@ -970,7 +976,7 @@ export type Database = {
             foreignKeyName: "teachers_id_fkey"
             columns: ["id"]
             isOneToOne: true
-            referencedRelation: "users"
+            referencedRelation: "users_view"
             referencedColumns: ["id"]
           },
           {
