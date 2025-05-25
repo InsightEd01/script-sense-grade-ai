@@ -1015,6 +1015,10 @@ export type Database = {
         Args: { admin_user_id: string }
         Returns: string
       }
+      get_current_user_role: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_school_name_for_user: {
         Args: Record<PropertyKey, never> | { user_id: number }
         Returns: string

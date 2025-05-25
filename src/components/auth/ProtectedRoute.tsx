@@ -1,31 +1,48 @@
 
-import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
 import { Loading } from '@/components/ui/loading';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  requiredRole?: 'admin' | 'teacher' | 'master_admin';
 }
 
-const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { user, isLoading } = useAuth();
-  const location = useLocation();
+const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
+  const { user, loading, role } = useAuth();
 
-  // If still loading auth state, show loading spinner
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loading size="lg" text="Verifying authentication..." />
+      <div className="flex items-center justify-center min-h-screen">
+        <Loading text="Checking authentication..." />
       </div>
     );
   }
 
-  // If no user is logged in, redirect to sign in page
   if (!user) {
-    return <Navigate to="/signin" state={{ from: location }} replace />;
+    return <Navigate to="/signin" replace />;
   }
 
-  // User is authenticated, render children
+  // Check role-based access
+  if (requiredRole) {
+    // Master admin can access everything
+    if (role === 'master_admin') {
+      return <>{children}</>;
+    }
+    
+    // Check specific role requirements
+    if (role !== requiredRole) {
+      // Redirect based on user's actual role
+      if (role === 'admin') {
+        return <Navigate to="/dashboard" replace />;
+      } else if (role === 'teacher') {
+        return <Navigate to="/dashboard" replace />;
+      } else {
+        return <Navigate to="/signin" replace />;
+      }
+    }
+  }
+
   return <>{children}</>;
 };
 

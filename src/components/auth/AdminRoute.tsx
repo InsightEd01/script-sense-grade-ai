@@ -1,36 +1,32 @@
 
-import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2 } from 'lucide-react';
+import { Navigate } from 'react-router-dom';
+import { Loading } from '@/components/ui/loading';
 
 interface AdminRouteProps {
   children: React.ReactNode;
 }
 
 const AdminRoute = ({ children }: AdminRouteProps) => {
-  const { user, isAdmin, isLoading } = useAuth();
-  const location = useLocation();
+  const { user, loading, role, isAdmin, isMasterAdmin } = useAuth();
 
-  // If still loading auth state, show loading spinner
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-scriptsense-primary" />
+      <div className="flex items-center justify-center min-h-screen">
+        <Loading text="Checking permissions..." />
       </div>
     );
   }
 
-  // If no user is logged in, redirect to sign in page
   if (!user) {
-    return <Navigate to="/signin" state={{ from: location }} replace />;
+    return <Navigate to="/signin" replace />;
   }
 
-  // If user is not an admin, redirect to dashboard
-  if (!isAdmin) {
+  // Allow access for admin and master_admin roles
+  if (!isAdmin && !isMasterAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // User is authenticated and is an admin, render children
   return <>{children}</>;
 };
 

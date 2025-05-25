@@ -1,111 +1,106 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { AnswerScript, Examination, Question, Student, Subject, Teacher } from '@/types/database.types';
+import type { Teacher, Student, Subject, Examination, Question, AnswerScript, School } from '@/types/supabase';
 
-// Answer Scripts
-export async function createAnswerScript(answerScript: {
-  student_id: string;
-  examination_id: string;
-  script_image_url: string;
-  processing_status: AnswerScript['processing_status'];
-  upload_timestamp?: string;
-  custom_instructions?: string;
-  enable_misconduct_detection?: boolean;
-  flags?: string[];
-}) {
+// Teacher management functions
+export const getTeachers = async (): Promise<Teacher[]> => {
   const { data, error } = await supabase
-    .from('answer_scripts')
-    .insert(answerScript)
-    .select()
+    .from('teacher_details')
+    .select('*')
+    .order('name');
+
+  if (error) {
+    console.error('Error fetching teachers:', error);
+    throw error;
+  }
+
+  return data || [];
+};
+
+export const createTeacher = async (teacherData: {
+  email: string;
+  password: string;
+  name: string;
+}): Promise<void> => {
+  // Get current user's school ID
+  const { data: currentUser, error: userError } = await supabase
+    .from('users')
+    .select('school_id, role')
+    .eq('id', (await supabase.auth.getUser()).data.user?.id)
     .single();
 
-  if (error) {
-    console.error('Error creating answer script:', error);
-    throw error;
+  if (userError || !currentUser) {
+    throw new Error('Failed to get current user information');
   }
 
-  return data;
-}
-
-export async function getAnswerScriptsByExamination(examinationId: string): Promise<AnswerScript[]> {
-  const { data, error } = await supabase
-    .from('answer_scripts')
-    .select('*, student:students(*)')
-    .eq('examination_id', examinationId)
-    .order('upload_timestamp', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching answer scripts:', error);
-    throw error;
+  if (currentUser.role !== 'admin' && currentUser.role !== 'master_admin') {
+    throw new Error('Insufficient permissions to create teachers');
   }
 
-  return data as AnswerScript[];
-}
+  // Create user with proper metadata for the trigger
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email: teacherData.email,
+    password: teacherData.password,
+    options: {
+      data: {
+        role: 'teacher',
+        name: teacherData.name,
+        school_id: currentUser.school_id,
+      }
+    }
+  });
 
-export async function getAnswerScriptById(id: string): Promise<AnswerScript> {
-  const { data, error } = await supabase
-    .from('answer_scripts')
-    .select('*, student:students(*), examination:examinations(*)')
-    .eq('id', id)
-    .single();
-
-  if (error) {
-    console.error('Error fetching answer script:', error);
-    throw error;
+  if (authError) {
+    throw new Error(`Failed to create teacher account: ${authError.message}`);
   }
 
-  return data as AnswerScript;
-}
+  if (!authData.user) {
+    throw new Error('Failed to create teacher account');
+  }
 
-export async function deleteAnswerScript(id: string): Promise<void> {
+  // The trigger will automatically create the teacher record
+  // We just need to update the created_by_admin field
+  const { error: updateError } = await supabase
+    .from('teachers')
+    .update({ 
+      created_by_admin: (await supabase.auth.getUser()).data.user?.id 
+    })
+    .eq('id', authData.user.id);
+
+  if (updateError) {
+    console.error('Warning: Failed to update teacher created_by_admin:', updateError);
+    // Don't throw here as the teacher was created successfully
+  }
+};
+
+export const updateTeacher = async (id: string, updates: Partial<Teacher>): Promise<void> => {
   const { error } = await supabase
-    .from('answer_scripts')
-    .delete()
+    .from('teachers')
+    .update(updates)
     .eq('id', id);
 
   if (error) {
-    console.error('Error deleting answer script:', error);
+    console.error('Error updating teacher:', error);
     throw error;
   }
-}
+};
 
-// Students
-export async function getStudents(): Promise<Student[]> {
-  // Get the current user's information first to fetch students in their school
-  const { data: userData, error: userError } = await supabase.auth.getUser();
+export const deleteTeacher = async (id: string): Promise<void> => {
+  // Delete from auth.users (this will cascade to teachers table via foreign key)
+  const { error: authError } = await supabase.auth.admin.deleteUser(id);
   
-  if (userError) {
-    console.error('Error getting user:', userError);
-    throw userError;
+  if (authError) {
+    console.error('Error deleting teacher from auth:', authError);
+    throw authError;
   }
-  
-  // Get the user's school_id from the users table or school_admins table
-  const { data: currentUser, error: currentUserError } = await supabase
-    .from('users')
-    .select('school_id, role')
-    .eq('id', userData.user.id)
-    .single();
-  
-  if (currentUserError) {
-    console.error('Error getting current user data:', currentUserError);
-    throw currentUserError;
-  }
+};
 
-  // Create the base query - students table now has school_id
-  let query = supabase
+// Student management functions
+export const getStudents = async (): Promise<Student[]> => {
+  const { data, error } = await supabase
     .from('students')
-    .select('*');
-    
-  // Filter students based on role
-  if (currentUser.role === 'teacher') {
-    // Teachers can only see their own students
-    query = query.eq('teacher_id', userData.user.id);
-  } else if (currentUser.role === 'admin' && currentUser.school_id) {
-    // Admins can see all students in their school
-    query = query.eq('school_id', currentUser.school_id);
-  }
-  
-  const { data, error } = await query.order('name', { ascending: true });
+    .select('*')
+    .order('name');
 
   if (error) {
     console.error('Error fetching students:', error);
@@ -113,46 +108,32 @@ export async function getStudents(): Promise<Student[]> {
   }
 
   return data || [];
-}
+};
 
-export async function createStudent(student: {
-  teacher_id: string;
-  name: string;
-  unique_student_id: string;
-}): Promise<Student> {
-  // Get the teacher's school_id
-  const { data: teacherData, error: teacherError } = await supabase
-    .from('teachers')
-    .select('school_id')
-    .eq('id', student.teacher_id)
-    .single();
-    
-  if (teacherError) {
-    console.error('Error getting teacher data:', teacherError);
-    throw teacherError;
-  }
-  
-  // Add the school_id to the student record
-  const studentWithSchool = {
-    ...student,
-    school_id: teacherData.school_id
-  };
-
-  const { data, error } = await supabase
+export const createStudent = async (studentData: Omit<Student, 'id' | 'created_at'>): Promise<void> => {
+  const { error } = await supabase
     .from('students')
-    .insert(studentWithSchool)
-    .select('*')
-    .single();
+    .insert([studentData]);
 
   if (error) {
     console.error('Error creating student:', error);
     throw error;
   }
+};
 
-  return data;
-}
+export const updateStudent = async (id: string, updates: Partial<Student>): Promise<void> => {
+  const { error } = await supabase
+    .from('students')
+    .update(updates)
+    .eq('id', id);
 
-export async function deleteStudent(id: string): Promise<void> {
+  if (error) {
+    console.error('Error updating student:', error);
+    throw error;
+  }
+};
+
+export const deleteStudent = async (id: string): Promise<void> => {
   const { error } = await supabase
     .from('students')
     .delete()
@@ -162,29 +143,14 @@ export async function deleteStudent(id: string): Promise<void> {
     console.error('Error deleting student:', error);
     throw error;
   }
-}
+};
 
-// Subjects
-export async function getSubjects(context?: unknown): Promise<Subject[]> {
-  let teacherId: string | undefined;
-  
-  if (typeof context === 'object' && context !== null) {
-    const queryKey = (context as any).queryKey;
-    if (Array.isArray(queryKey) && queryKey.length > 1) {
-      teacherId = queryKey[1] as string;
-    }
-  } else if (typeof context === 'string') {
-    teacherId = context;
-  }
-  
-  // Create the base query
-  let query = supabase.from('subjects').select('*');
-  
-  if (teacherId) {
-    query = query.eq('teacher_id', teacherId);
-  }
-
-  const { data, error } = await query.order('name', { ascending: true });
+// Subject management functions
+export const getSubjects = async (): Promise<Subject[]> => {
+  const { data, error } = await supabase
+    .from('subjects')
+    .select('*')
+    .order('name');
 
   if (error) {
     console.error('Error fetching subjects:', error);
@@ -192,28 +158,32 @@ export async function getSubjects(context?: unknown): Promise<Subject[]> {
   }
 
   return data || [];
-}
+};
 
-export async function createSubject(subject: {
-  teacher_id: string;
-  name: string;
-  description?: string;
-}): Promise<Subject> {
-  const { data, error } = await supabase
+export const createSubject = async (subjectData: Omit<Subject, 'id' | 'created_at'>): Promise<void> => {
+  const { error } = await supabase
     .from('subjects')
-    .insert(subject)
-    .select()
-    .single();
+    .insert([subjectData]);
 
   if (error) {
     console.error('Error creating subject:', error);
     throw error;
   }
+};
 
-  return data;
-}
+export const updateSubject = async (id: string, updates: Partial<Subject>): Promise<void> => {
+  const { error } = await supabase
+    .from('subjects')
+    .update(updates)
+    .eq('id', id);
 
-export async function deleteSubject(id: string): Promise<void> {
+  if (error) {
+    console.error('Error updating subject:', error);
+    throw error;
+  }
+};
+
+export const deleteSubject = async (id: string): Promise<void> => {
   const { error } = await supabase
     .from('subjects')
     .delete()
@@ -223,20 +193,17 @@ export async function deleteSubject(id: string): Promise<void> {
     console.error('Error deleting subject:', error);
     throw error;
   }
-}
+};
 
-// Examinations
-export async function getExaminationsBySubject(subjectId: string): Promise<Examination[]> {
-  let query = supabase
+// Examination management functions
+export const getExaminations = async (): Promise<Examination[]> => {
+  const { data, error } = await supabase
     .from('examinations')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  if (subjectId !== 'all') {
-    query = query.eq('subject_id', subjectId);
-  }
-
-  const { data, error } = await query;
+    .select(`
+      *,
+      subject:subjects(name)
+    `)
+    .order('name');
 
   if (error) {
     console.error('Error fetching examinations:', error);
@@ -244,43 +211,32 @@ export async function getExaminationsBySubject(subjectId: string): Promise<Exami
   }
 
   return data || [];
-}
+};
 
-export async function getExaminationById(id: string): Promise<Examination> {
-  const { data, error } = await supabase
+export const createExamination = async (examinationData: Omit<Examination, 'id' | 'created_at'>): Promise<void> => {
+  const { error } = await supabase
     .from('examinations')
-    .select('*')
-    .eq('id', id)
-    .single();
-
-  if (error) {
-    console.error('Error fetching examination:', error);
-    throw error;
-  }
-
-  return data;
-}
-
-export async function createExamination(examination: {
-  subject_id: string;
-  name: string;
-  total_marks: number;
-}): Promise<Examination> {
-  const { data, error } = await supabase
-    .from('examinations')
-    .insert(examination)
-    .select()
-    .single();
+    .insert([examinationData]);
 
   if (error) {
     console.error('Error creating examination:', error);
     throw error;
   }
+};
 
-  return data;
-}
+export const updateExamination = async (id: string, updates: Partial<Examination>): Promise<void> => {
+  const { error } = await supabase
+    .from('examinations')
+    .update(updates)
+    .eq('id', id);
 
-export async function deleteExamination(id: string): Promise<void> {
+  if (error) {
+    console.error('Error updating examination:', error);
+    throw error;
+  }
+};
+
+export const deleteExamination = async (id: string): Promise<void> => {
   const { error } = await supabase
     .from('examinations')
     .delete()
@@ -290,494 +246,126 @@ export async function deleteExamination(id: string): Promise<void> {
     console.error('Error deleting examination:', error);
     throw error;
   }
-}
+};
 
-// Questions
-export async function getQuestionsByExamination(examinationId: string): Promise<Question[]> {
+// Question management functions
+export const getQuestions = async (): Promise<Question[]> => {
   const { data, error } = await supabase
     .from('questions')
-    .select('*')
-    .eq('examination_id', examinationId)
-    .order('created_at', { ascending: true });
+    .select(`
+      *,
+      examination:examinations(name)
+    `)
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching questions:', error);
     throw error;
   }
 
-  return data as Question[];
-}
+  return data || [];
+};
 
-export async function createQuestion(question: {
-  examination_id: string;
-  question_text: string;
-  model_answer: string;
-  model_answer_source: 'uploaded' | 'ai_generated';
-  marks: number;
-  tolerance: number;
-}): Promise<Question> {
-  const { data, error } = await supabase
+export const createQuestion = async (questionData: Omit<Question, 'id' | 'created_at'>): Promise<void> => {
+  const { error } = await supabase
     .from('questions')
-    .insert(question)
-    .select()
-    .single();
+    .insert([questionData]);
 
   if (error) {
     console.error('Error creating question:', error);
     throw error;
   }
+};
 
-  return data as Question;
-}
-
-export async function updateQuestion(
-  questionId: string,
-  updates: {
-    question_text?: string;
-    model_answer?: string;
-    model_answer_source?: 'uploaded' | 'ai_generated';
-    marks?: number;
-    tolerance?: number;
-  }
-): Promise<Question> {
-  const { data, error } = await supabase
+export const updateQuestion = async (id: string, updates: Partial<Question>): Promise<void> => {
+  const { error } = await supabase
     .from('questions')
     .update(updates)
-    .eq('id', questionId)
-    .select()
-    .single();
+    .eq('id', id);
 
   if (error) {
     console.error('Error updating question:', error);
     throw error;
   }
+};
 
-  return data as Question;
-}
-
-// Teachers - Updated to create teachers directly on the client side
-export async function getTeachers(): Promise<Teacher[]> {
-  try {
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError) throw userError;
-
-    // Get current user's role and school_id
-    const { data: currentUser, error: currentUserError } = await supabase
-      .from('users')
-      .select('role, school_id')
-      .eq('id', userData.user.id)
-      .single();
-      
-    if (currentUserError) throw currentUserError;
-
-    // Create the base query using the updated teacher_details view
-    let query = supabase.from('teacher_details').select('*');
-    
-    // Filter teachers based on role
-    if (currentUser.role === 'admin' && currentUser.school_id) {
-      // Admins can only see teachers in their school
-      query = query.eq('school_id', currentUser.school_id);
-    }
-    
-    const { data, error } = await query.order('name', { ascending: true });
-
-    if (error) {
-      console.error('Error fetching teachers:', error);
-      throw error;
-    }
-
-    // Transform the data to match the expected Teacher interface
-    const teachers: Teacher[] = data?.map(teacher => ({
-      id: teacher.id,
-      name: teacher.name,
-      created_by_admin: teacher.created_by_admin,
-      school_id: teacher.school_id,
-      email: teacher.email,
-      school_name: teacher.school_name
-    })) || [];
-
-    return teachers;
-  } catch (error) {
-    console.error('getTeachers error:', error);
-    throw error;
-  }
-}
-
-export async function createTeacher(teacherData: {
-  email: string;
-  password: string;
-  name: string;
-}): Promise<void> {
-  try {
-    // Get current user and school information
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError) throw userError;
-
-    // Get current user's school_id
-    const { data: currentUser, error: currentUserError } = await supabase
-      .from('users')
-      .select('school_id, role')
-      .eq('id', userData.user.id)
-      .single();
-      
-    if (currentUserError) throw currentUserError;
-
-    if (currentUser.role !== 'admin') {
-      throw new Error('Only admins can create teacher accounts');
-    }
-
-    if (!currentUser.school_id) {
-      throw new Error('Admin must be associated with a school');
-    }
-
-    // Sign up the teacher using the client-side auth
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email: teacherData.email,
-      password: teacherData.password,
-      options: {
-        data: {
-          name: teacherData.name,
-          role: 'teacher',
-          school_id: currentUser.school_id
-        }
-      }
-    });
-
-    if (signUpError) {
-      console.error('Error creating teacher account:', signUpError);
-      throw new Error(`Failed to create teacher account: ${signUpError.message}`);
-    }
-
-    if (!signUpData.user) {
-      throw new Error('Failed to create teacher account - no user returned');
-    }
-
-    // Create the teacher record manually since triggers might not work with client-side signup
-    const { error: teacherInsertError } = await supabase
-      .from('teachers')
-      .insert({
-        id: signUpData.user.id,
-        name: teacherData.name,
-        school_id: currentUser.school_id,
-        created_by_admin: userData.user.id
-      });
-
-    if (teacherInsertError) {
-      console.error('Error creating teacher record:', teacherInsertError);
-      // Note: The user account was created but teacher record failed
-      // In production, you might want to handle this cleanup
-      throw new Error(`Teacher account created but failed to create teacher record: ${teacherInsertError.message}`);
-    }
-
-    console.log('Teacher created successfully:', {
-      userId: signUpData.user.id,
-      email: teacherData.email,
-      name: teacherData.name,
-      schoolId: currentUser.school_id
-    });
-
-  } catch (error) {
-    console.error('createTeacher error:', error);
-    throw error;
-  }
-}
-
-export async function deleteTeacher(id: string): Promise<void> {
-  try {
-    // First delete the teacher record (this will cascade to related data)
-    const { error: deleteError } = await supabase
-      .from('teachers')
-      .delete()
-      .eq('id', id);
-
-    if (deleteError) {
-      console.error('Error deleting teacher:', deleteError);
-      throw deleteError;
-    }
-    
-    // Then delete the user record if it exists
-    const { error: userDeleteError } = await supabase
-      .from('users')
-      .delete()
-      .eq('id', id);
-        
-    if (userDeleteError) {
-      console.error('Error deleting user record:', userDeleteError);
-      // Don't throw here as the teacher is already deleted
-    }
-  } catch (error) {
-    console.error('deleteTeacher error:', error);
-    throw error;
-  }
-}
-
-export async function updateTeacher(id: string, updates: { name: string }): Promise<void> {
-  try {
-    const { error: updateError } = await supabase
-      .from('teachers')
-      .update(updates)
-      .eq('id', id);
-
-    if (updateError) {
-      console.error('Error updating teacher:', updateError);
-      throw updateError;
-    }
-  } catch (error) {
-    console.error('updateTeacher error:', error);
-    throw error;
-  }
-}
-
-// Helper function to ensure admin users have school_admin records
-export async function ensureAdminSchoolRecord(userId: string): Promise<void> {
-  try {
-    // Check if school_admin record exists
-    const { data: existingAdmin } = await supabase
-      .from('school_admins')
-      .select('id')
-      .eq('user_id', userId)
-      .single();
-
-    if (!existingAdmin) {
-      // Get user info to create school_admin record
-      const { data: userData } = await supabase
-        .from('users')
-        .select('email, school_id, role')
-        .eq('id', userId)
-        .single();
-
-      if (userData && userData.role === 'admin' && userData.school_id) {
-        await supabase
-          .from('school_admins')
-          .insert({
-            user_id: userId,
-            school_id: userData.school_id,
-            name: userData.email.split('@')[0],
-            email: userData.email
-          });
-      }
-    }
-  } catch (error) {
-    console.error('Error ensuring admin school record:', error);
-    // Don't throw - this is a helper function
-  }
-}
-
-// Updated helper function for backward compatibility
-export async function ensureAdminTeacherRecord(userId: string): Promise<void> {
-  try {
-    // First ensure they have a school_admin record
-    await ensureAdminSchoolRecord(userId);
-    
-    // Check if teacher record exists
-    const { data: existingTeacher } = await supabase
-      .from('teachers')
-      .select('id')
-      .eq('id', userId)
-      .single();
-
-    if (!existingTeacher) {
-      // Get user info to create teacher record
-      const { data: userData } = await supabase
-        .from('users')
-        .select('email, school_id')
-        .eq('id', userId)
-        .single();
-
-      if (userData && userData.school_id) {
-        await supabase
-          .from('teachers')
-          .insert({
-            id: userId,
-            name: userData.email.split('@')[0],
-            school_id: userData.school_id
-          });
-      }
-    }
-  } catch (error) {
-    console.error('Error ensuring admin teacher record:', error);
-    // Don't throw - this is a helper function
-  }
-}
-
-// School Admins - New functions for managing school admins
-export async function getSchoolAdmins(schoolId?: string) {
-  try {
-    let query = supabase.from('school_admin_details').select('*');
-    
-    if (schoolId) {
-      query = query.eq('school_id', schoolId);
-    }
-    
-    const { data, error } = await query.order('name', { ascending: true });
-
-    if (error) {
-      console.error('Error fetching school admins:', error);
-      throw error;
-    }
-
-    return data || [];
-  } catch (error) {
-    console.error('getSchoolAdmins error:', error);
-    throw error;
-  }
-}
-
-export async function createSchoolAdmin(adminData: {
-  email: string;
-  password: string;
-  name: string;
-  school_id: string;
-}) {
-  try {
-    // This would typically be handled by a master admin through an edge function
-    // For now, we'll throw an error to indicate this needs to be implemented
-    throw new Error('Creating school admins requires master admin privileges. Please use the master admin interface.');
-  } catch (error) {
-    console.error('createSchoolAdmin error:', error);
-    throw error;
-  }
-}
-
-export async function updateSchoolAdmin(adminId: string, updates: {
-  name?: string;
-  email?: string;
-  is_active?: boolean;
-}) {
-  try {
-    const { data, error } = await supabase
-      .from('school_admins')
-      .update(updates)
-      .eq('id', adminId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error updating school admin:', error);
-      throw error;
-    }
-
-    return data;
-  } catch (error) {
-    console.error('updateSchoolAdmin error:', error);
-    throw error;
-  }
-}
-
-export async function deleteSchoolAdmin(adminId: string) {
-  try {
-    const { error } = await supabase
-      .from('school_admins')
-      .delete()
-      .eq('id', adminId);
-
-    if (error) {
-      console.error('Error deleting school admin:', error);
-      throw error;
-    }
-  } catch (error) {
-    console.error('deleteSchoolAdmin error:', error);
-    throw error;
-  }
-}
-
-// Answers
-export async function getAnswersByScriptId(scriptId: string) {
-  const { data, error } = await supabase
-    .from('answers')
-    .select('*, question:questions(*)')
-    .eq('answer_script_id', scriptId)
-    .order('question(created_at)', { ascending: true });
+export const deleteQuestion = async (id: string): Promise<void> => {
+  const { error } = await supabase
+    .from('questions')
+    .delete()
+    .eq('id', id);
 
   if (error) {
-    console.error('Error fetching answers:', error);
+    console.error('Error deleting question:', error);
+    throw error;
+  }
+};
+
+// School management functions (for master admin)
+export const getSchools = async (): Promise<School[]> => {
+  const { data, error } = await supabase
+    .from('schools')
+    .select('*')
+    .order('name');
+
+  if (error) {
+    console.error('Error fetching schools:', error);
     throw error;
   }
 
-  return data;
-}
+  return data || [];
+};
 
-export async function updateAnswer(answerId: string, updates: { 
-  manual_grade?: number; 
-  is_overridden?: boolean;
-  override_justification?: string;
-}) {
-  const { data, error } = await supabase
-    .from('answers')
+export const createSchool = async (schoolData: Omit<School, 'id' | 'created_at'>): Promise<void> => {
+  const { error } = await supabase
+    .from('schools')
+    .insert([schoolData]);
+
+  if (error) {
+    console.error('Error creating school:', error);
+    throw error;
+  }
+};
+
+export const updateSchool = async (id: string, updates: Partial<School>): Promise<void> => {
+  const { error } = await supabase
+    .from('schools')
     .update(updates)
-    .eq('id', answerId)
-    .select()
-    .single();
+    .eq('id', id);
 
   if (error) {
-    console.error('Error updating answer:', error);
+    console.error('Error updating school:', error);
+    throw error;
+  }
+};
+
+export const deleteSchool = async (id: string): Promise<void> => {
+  const { error } = await supabase
+    .from('schools')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting school:', error);
+    throw error;
+  }
+};
+
+// Answer script management functions
+export const getAnswerScripts = async (): Promise<AnswerScript[]> => {
+  const { data, error } = await supabase
+    .from('answer_scripts')
+    .select(`
+      *,
+      student:students(name, unique_student_id),
+      examination:examinations(name)
+    `)
+    .order('upload_timestamp', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching answer scripts:', error);
     throw error;
   }
 
-  return data;
-}
-
-// Chat Functions
-export async function createChatRoom(name: string, userId: string) {
-  try {
-    const { data: roomData, error: roomError } = await supabase
-      .from('chat_rooms')
-      .insert({
-        name,
-        created_by: userId
-      })
-      .select()
-      .single();
-
-    if (roomError) throw roomError;
-
-    const { error: participantError } = await supabase
-      .from('chat_participants')
-      .insert({
-        room_id: roomData.id,
-        user_id: userId
-      });
-
-    if (participantError) throw participantError;
-
-    return roomData;
-  } catch (error) {
-    console.error('createChatRoom error:', error);
-    throw error;
-  }
-}
-
-export async function getChatRooms() {
-  try {
-    const { data, error } = await supabase
-      .from('chat_rooms')
-      .select(`
-        *,
-        chat_participants:chat_participants(user_id)
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data || [];
-  } catch (error) {
-    console.error('getChatRooms error:', error);
-    throw error;
-  }
-}
-
-export async function sendMessage(roomId: string, senderId: string, message: string) {
-  try {
-    const { data, error } = await supabase
-      .from('chat_messages')
-      .insert({ room_id: roomId, sender_id: senderId, message_text: message })
-      .select()
-      .single();
-      
-    if (error) throw error;
-    
-    return data;
-  } catch (error) {
-    console.error('sendMessage error:', error);
-    throw error;
-  }
-}
+  return data || [];
+};
