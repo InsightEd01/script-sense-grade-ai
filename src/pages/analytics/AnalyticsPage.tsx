@@ -6,8 +6,28 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Loading } from '@/components/ui/loading';
 import { useEffect, useState } from 'react';
-import { Answer } from '@/types/supabase';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+
+// Define the analytics answer type specifically for this component
+interface AnalyticsAnswer {
+  id: string;
+  answer_script_id: string;
+  question_id: string;
+  extracted_text?: string;
+  assigned_grade?: number;
+  llm_explanation?: string;
+  is_overridden: boolean;
+  manual_grade?: number;
+  override_justification?: string;
+  flags?: string[];
+  segmentation_confidence?: number;
+  segmentation_method?: string;
+  spatial_location?: any;
+  question?: {
+    question_text: string;
+    marks: number;
+  };
+}
 
 const AnalyticsPage = () => {
   const [gradeDistributionData, setGradeDistributionData] = useState<any[]>([]);
@@ -29,7 +49,7 @@ const AnalyticsPage = () => {
         .not('assigned_grade', 'is', null);
 
       if (error) throw error;
-      return data as Answer[];
+      return data as AnalyticsAnswer[];
     }
   });
 

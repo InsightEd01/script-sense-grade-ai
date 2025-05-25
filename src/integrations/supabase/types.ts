@@ -870,19 +870,19 @@ export type Database = {
         Row: {
           email: string
           id: string
-          role: string
+          role: string | null
           school_id: string | null
         }
         Insert: {
           email: string
           id: string
-          role: string
+          role?: string | null
           school_id?: string | null
         }
         Update: {
           email?: string
           id?: string
-          role?: string
+          role?: string | null
           school_id?: string | null
         }
         Relationships: [
@@ -1016,7 +1016,7 @@ export type Database = {
         Returns: string
       }
       get_school_name_for_user: {
-        Args: Record<PropertyKey, never>
+        Args: Record<PropertyKey, never> | { user_id: number }
         Returns: string
       }
       get_user_school_id: {
@@ -1030,6 +1030,10 @@ export type Database = {
       is_room_participant: {
         Args: { room_id: string }
         Returns: boolean
+      }
+      sync_user_roles: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       validate_school_access: {
         Args: { school_id: string }
